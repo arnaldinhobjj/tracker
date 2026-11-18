@@ -4,8 +4,7 @@
     "strict": true
   },
   "fmt": {
-    "lineWidth": 100,
-    "exclude": ["_shared/testdata/"]
+    "lineWidth": 100
   },
   "lint": {
     "rules": {

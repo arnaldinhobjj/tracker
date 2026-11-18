@@ -2,17 +2,18 @@
 // (StoreKit 2 transactions, renewal info, App Store Server Notifications V2, Server API).
 //
 // Canonical source: https://www.apple.com/certificateauthority/AppleRootCA-G3.cer (DER).
-// The bytes below were taken from the copy embedded in Apple's official
-// @apple/app-store-server-library (npm 3.1.0, REAL_APPLE_ROOT_BASE64_ENCODED) and converted with
-//   openssl x509 -inform DER -in AppleRootCA-G3.cer -out AppleRootCA-G3.pem
-// because apple.com was not reachable from the environment that wrote this file. Their SHA-256
-// matches the well-known fingerprint below (also pinned by the app-store-server-api package).
+// apple.com was not reachable from the environment that wrote this file, so the bytes were taken
+// from Apple's official npm package @apple/app-store-server-library@3.1.0
+// (dist/tests/unit-tests/jws_verification.test.js, REAL_APPLE_ROOT_BASE64_ENCODED; tarball
+// integrity sha512-d26SICRz8BwCV2qPR0BSXBMxmw0NEvJLwsdREcBmCrus8NmyHw2XgOOP0fiFjcctPn/JXtmSDuGVnaHe+dqO+A==)
+// and their SHA-256 checked against Apple's published fingerprint below. Nothing was invented.
 // Subject: CN=Apple Root CA - G3, OU=Apple Certification Authority, O=Apple Inc., C=US
 // Valid: 2014-04-30 to 2039-04-30.
-// SHA-256 fingerprint (pinned below and checked at load time):
+// SHA-256 fingerprint (pinned below and checked at load time; a mismatch fails every request):
 //   63:34:3A:BF:B8:9A:6A:03:EB:B5:7E:9B:3F:5F:A7:BE:7C:4F:5C:75:6F:30:17:B3:A8:C4:88:C3:65:3E:91:79
-// To re-check independently: download the .cer above and run
+// Owner check (recommended once): download the .cer above on your Mac and run
 //   openssl x509 -inform DER -in AppleRootCA-G3.cer -noout -fingerprint -sha256
+// The output must equal the fingerprint above.
 
 import { x509 } from "./deps.ts";
 

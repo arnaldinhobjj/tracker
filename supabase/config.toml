@@ -47,7 +47,7 @@ enabled = false
 enabled = true
 # Email links (confirmation, password recovery) open the app.
 site_url = "dayledger://auth-callback"
-additional_redirect_urls = ["dayledger://auth-callback", "http://127.0.0.1:3000"]
+additional_redirect_urls = ["dayledger://auth-callback"]
 jwt_expiry = 3600
 enable_refresh_token_rotation = true
 refresh_token_reuse_interval = 10
@@ -64,7 +64,7 @@ sign_in_sign_ups = 30
 token_verifications = 30
 
 [auth.email]
-enable_signup = true
+enabled = true
 double_confirm_changes = true
 enable_confirmations = true
 secure_password_change = false
@@ -73,7 +73,8 @@ otp_length = 6
 otp_expiry = 3600
 
 # Sign in with Apple. client_id is a comma-separated list: the iOS app's bundle id (native
-# id_token flow) and, optionally, the Services ID used for web sign-in.
+# id_token flow) and, optionally, the Services ID used for web sign-in. The secret (a signed
+# client-secret JWT) is only needed for the web OAuth flow; native id_token sign-in works without.
 [auth.external.apple]
 enabled = true
 client_id = "env(SUPABASE_AUTH_EXTERNAL_APPLE_CLIENT_ID)"
