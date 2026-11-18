@@ -1,0 +1,61 @@
+{
+  "identifier" : "4D7B2C1E",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+
+  ],
+  "settings" : {
+    "_failTransactionsEnabled" : false,
+    "_locale" : "en_GB",
+    "_storefront" : "GBR",
+    "_storeKitErrors" : [
+
+    ]
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "9A41E6B3",
+      "localizations" : [
+
+      ],
+      "name" : "DayLedger Pro",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "4.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "6E2F8D10",
+          "introductoryOffer" : {
+            "internalID" : "B3C5A7E2",
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P1W"
+          },
+          "localizations" : [
+            {
+              "description" : "Spending, places and calendar diary, synced to your account.",
+              "displayName" : "DayLedger Pro",
+              "locale" : "en_GB"
+            }
+          ],
+          "productID" : "app.dayledger.pro.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "DayLedger Pro Monthly",
+          "subscriptionGroupID" : "9A41E6B3",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}

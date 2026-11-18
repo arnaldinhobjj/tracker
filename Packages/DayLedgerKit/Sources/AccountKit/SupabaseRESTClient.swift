@@ -49,6 +49,23 @@ public final class SupabaseRESTClient: @unchecked Sendable {
         }
     }
 
+    /// Hard-deletes the user's rows by id: `DELETE /rest/v1/<table>?user_id=eq.<uid>&id=in.(…)`.
+    /// Used instead of a soft delete when the user has no active entitlement (RLS then allows
+    /// deleting own rows but not updating them). Ids go in quoted batches of 100.
+    public func delete(from table: String, userID: UUID, ids: [String]) async throws {
+        var start = 0
+        while start < ids.count {
+            let end = min(start + 100, ids.count)
+            let list = ids[start..<end].map(Self.quoted).joined(separator: ",")
+            let url = try configuration.endpoint("rest/v1/\(table)", query: [
+                URLQueryItem(name: "user_id", value: "eq.\(userID.uuidString.lowercased())"),
+                URLQueryItem(name: "id", value: "in.(\(list))"),
+            ])
+            _ = try await authorised(url: url, method: "DELETE", body: nil, headers: ["Prefer": "return=minimal"])
+            start = end
+        }
+    }
+
     /// One page of rows changed after `cursor`, oldest first:
     /// `GET /rest/v1/<table>?select=*&updated_at=gt.<cursor>&order=updated_at.asc&limit=500`
     /// (with `id` as a tie-breaker when the cursor has one).

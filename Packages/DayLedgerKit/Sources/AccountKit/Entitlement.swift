@@ -36,13 +36,16 @@ public struct Entitlement: Codable, Equatable, Sendable {
     public var expiresAt: Date?
     public var isTrial: Bool
     public var productId: String?
+    /// Whether the subscription renews at `expiresAt`. Nil when the server didn't say.
+    public var autoRenew: Bool?
 
-    public init(active: Bool, status: Status, expiresAt: Date?, isTrial: Bool, productId: String?) {
+    public init(active: Bool, status: Status, expiresAt: Date?, isTrial: Bool, productId: String?, autoRenew: Bool? = nil) {
         self.active = active
         self.status = status
         self.expiresAt = expiresAt
         self.isTrial = isTrial
         self.productId = productId
+        self.autoRenew = autoRenew
     }
 
     public static let none = Entitlement(active: false, status: .none, expiresAt: nil, isTrial: false, productId: nil)
@@ -56,7 +59,7 @@ public struct Entitlement: Codable, Equatable, Sendable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case active, status, expiresAt, isTrial, productId
+        case active, status, expiresAt, isTrial, productId, autoRenew
     }
 
     public init(from decoder: Decoder) throws {
@@ -65,6 +68,7 @@ public struct Entitlement: Codable, Equatable, Sendable {
         status = try container.decodeIfPresent(Status.self, forKey: .status) ?? (active ? .active : .none)
         isTrial = try container.decodeIfPresent(Bool.self, forKey: .isTrial) ?? (status == .trial)
         productId = try container.decodeIfPresent(String.self, forKey: .productId)
+        autoRenew = try container.decodeIfPresent(Bool.self, forKey: .autoRenew)
         if let raw = try container.decodeIfPresent(String.self, forKey: .expiresAt) {
             guard let date = ISO8601.date(from: raw) else {
                 throw DecodingError.dataCorruptedError(forKey: .expiresAt, in: container, debugDescription: "Not an ISO 8601 date: \(raw)")
@@ -82,6 +86,7 @@ public struct Entitlement: Codable, Equatable, Sendable {
         try container.encode(expiresAt.map(ISO8601.string(from:)), forKey: .expiresAt)
         try container.encode(isTrial, forKey: .isTrial)
         try container.encode(productId, forKey: .productId)
+        try container.encode(autoRenew, forKey: .autoRenew)
     }
 }
 

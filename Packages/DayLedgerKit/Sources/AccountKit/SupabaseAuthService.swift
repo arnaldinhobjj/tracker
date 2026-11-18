@@ -70,12 +70,12 @@ public final class SupabaseAuthService: AuthServicing, @unchecked Sendable {
     // MARK: Email and password
 
     public func signUp(email: String, password: String) async throws -> SignUpResult {
-        let email = Self.normalise(email)
+        let normalisedEmail = Self.normalise(email)
         // PKCE for the confirmation link: the email brings back `?code=`, exchanged with this verifier.
         let verifier = SupabasePKCE.makeVerifier()
         let url = try configuration.endpoint("auth/v1/signup", query: [URLQueryItem(name: "redirect_to", value: SupabaseConfiguration.authCallbackURL)])
         let request = try makeJSONRequest(url: url, body: [
-            "email": email,
+            "email": normalisedEmail,
             "password": password,
             "code_challenge": SupabasePKCE.challenge(for: verifier),
             "code_challenge_method": "s256",
@@ -87,7 +87,7 @@ public final class SupabaseAuthService: AuthServicing, @unchecked Sendable {
             try? store.remove(SecureStoreKey.supabasePendingEmailLink)
             return .signedIn(session)
         }
-        return .confirmationRequired(email: email)
+        return .confirmationRequired(email: normalisedEmail)
     }
 
     public func signIn(email: String, password: String) async throws -> AuthSession {

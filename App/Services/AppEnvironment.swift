@@ -35,6 +35,9 @@ final class AppEnvironment {
     let account: AccountController
     let subscriptions: SubscriptionManager
     let cloudSync: CloudSyncService
+    /// PostgREST / Edge Functions for the signed-in user. Nil without a backend (not configured,
+    /// UI tests, developer account).
+    let cloudREST: SupabaseRESTClient?
 
     init(
         configuration: AppConfiguration,
@@ -91,6 +94,7 @@ final class AppEnvironment {
         // No backend calls in UI tests, for the developer account, or without configuration.
         let usesBackend = !isUITesting && developerUser == nil && supabase.isConfigured
         let rest = usesBackend ? SupabaseRESTClient(configuration: supabase, tokens: auth) : nil
+        cloudREST = rest
         account = AccountController(auth: auth, developerUser: developerUser)
         subscriptions = SubscriptionManager(
             mode: isUITesting ? .disabled : developerUser != nil ? .alwaysEntitled : .live,
@@ -126,10 +130,10 @@ final class AppEnvironment {
 
     /// Connects the account, the subscription and cloud sync.
     private func wireAccount() {
-        let account = account
-        let subscriptions = subscriptions
-        let cloudSync = cloudSync
-        let widgetPublisher = widgetPublisher
+        let account = self.account
+        let subscriptions = self.subscriptions
+        let cloudSync = self.cloudSync
+        let widgetPublisher = self.widgetPublisher
 
         cloudSync.currentUserID = {
             account.isDeveloperAccount ? nil : account.user?.id

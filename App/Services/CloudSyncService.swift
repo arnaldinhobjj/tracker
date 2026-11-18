@@ -110,6 +110,8 @@ final class CloudSyncService {
             changed = try await pullVisits(userID: userID, rest: rest, now: now) || changed
             let canWrite = self.canWrite()
             changed = try await syncSettings(userID: userID, rest: rest, canWrite: canWrite, now: now) || changed
+            // Deletions are pushed even without a subscription: lapsed users may still delete.
+            try await pushDeletions(userID: userID, rest: rest, softDelete: canWrite)
             if canWrite {
                 try await pushTransactions(userID: userID, rest: rest)
                 try await pushVisits(userID: userID, rest: rest)
@@ -147,10 +149,12 @@ final class CloudSyncService {
         return changed
     }
 
-    private func pushTransactions(userID: UUID, rest: SupabaseRESTClient) async throws {
-        let startedAt = Date()
-        // Deletions first; skip any id that is back locally (a pending item re-fetched unchanged).
+    /// Local deletions. With a subscription they are soft (`deleted_at`, so other devices learn
+    /// about them); without one RLS forbids updates, so the rows are hard-deleted instead.
+    private func pushDeletions(userID: UUID, rest: SupabaseRESTClient, softDelete: Bool) async throws {
         let tombstones = pendingTombstones()
+        guard !tombstones.isEmpty else { return }
+        // Skip any id that is back locally (a pending item re-fetched unchanged).
         let stillPresent = transactions.existingIDs(in: tombstones.map(\.id))
         let deletes = tombstones.filter { !stillPresent.contains($0.id) }.map { row -> TransactionRow in
             var row = row
@@ -158,10 +162,17 @@ final class CloudSyncService {
             return row
         }
         if !deletes.isEmpty {
-            try await rest.upsert(deletes, into: Self.transactionsTable, onConflict: "user_id,id")
+            if softDelete {
+                try await rest.upsert(deletes, into: Self.transactionsTable, onConflict: "user_id,id")
+            } else {
+                try await rest.delete(from: Self.transactionsTable, userID: userID, ids: deletes.map(\.id))
+            }
         }
         clearTombstones(Set(tombstones.map(\.id)))
+    }
 
+    private func pushTransactions(userID: UUID, rest: SupabaseRESTClient) async throws {
+        let startedAt = Date()
         let dirty = transactions.cloudDirty()
         guard !dirty.isEmpty else { return }
         let rows = dirty.map { TransactionRow(stored: $0.domain, userID: userID) }

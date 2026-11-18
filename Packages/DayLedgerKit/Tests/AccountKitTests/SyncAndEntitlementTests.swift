@@ -13,9 +13,12 @@ final class EntitlementTests: XCTestCase {
         XCTAssertEqual(entitlement.productId, "app.dayledger.pro.monthly")
         XCTAssertEqual(entitlement.expiresAt, Date(timeIntervalSince1970: 1_795_600_800))
 
-        let fractional = #"{"active":true,"status":"grace_period","expiresAt":"2026-11-25T10:00:00.250Z","isTrial":false,"productId":"app.dayledger.pro.monthly"}"#
+        XCTAssertNil(entitlement.autoRenew)
+
+        let fractional = #"{"active":true,"status":"grace_period","expiresAt":"2026-11-25T10:00:00.250Z","isTrial":false,"productId":"app.dayledger.pro.monthly","autoRenew":false}"#
         let grace = try JSONDecoder().decode(Entitlement.self, from: Data(fractional.utf8))
         XCTAssertEqual(grace.status, .gracePeriod)
+        XCTAssertEqual(grace.autoRenew, false)
         XCTAssertEqual(grace.expiresAt?.timeIntervalSince1970 ?? 0, 1_795_600_800.25, accuracy: 0.001)
 
         let micro = #"{"active":true,"status":"active","expiresAt":"2026-11-25T10:00:00.123456+00:00"}"#
@@ -25,7 +28,7 @@ final class EntitlementTests: XCTestCase {
 
     func testNoSubscriptionAndUnknownStatus() throws {
         let none = try JSONDecoder().decode(Entitlement.self, from: Data(#"{"active":false,"status":"none","expiresAt":null}"#.utf8))
-        XCTAssertEqual(none.status, .none)
+        XCTAssertEqual(none.status, Entitlement.Status.none)
         XCTAssertFalse(none.isEntitled())
 
         let future = try JSONDecoder().decode(Entitlement.self, from: Data(#"{"active":false,"status":"paused_by_moon"}"#.utf8))
@@ -165,7 +168,7 @@ final class SupabaseRESTClientTests: XCTestCase {
         XCTAssertEqual(verified.status, .trial)
         XCTAssertEqual(http.requests.last?.jsonBody()?["signedTransaction"] as? String, "jws")
         let none = try await client.fetchEntitlement()
-        XCTAssertEqual(none.status, .none)
+        XCTAssertEqual(none.status, Entitlement.Status.none)
         XCTAssertEqual(http.requests.last?.httpMethod, "GET")
         try await client.deleteAccount()
         XCTAssertEqual(http.requests.last?.httpMethod, "POST")

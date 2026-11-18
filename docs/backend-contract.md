@@ -169,9 +169,12 @@ Session (access token, refresh token, expiry, user id, email) is stored in the *
 - Push: `POST /rest/v1/<table>?on_conflict=user_id,id` with
   `Prefer: resolution=merge-duplicates,return=minimal`, batches of ≤ 500, `user_id` set to the
   signed-in user (RLS rejects anything else).
-- Pull: `GET /rest/v1/<table>?select=*&updated_at=gt.<cursor>&order=updated_at.asc&limit=500`,
-  repeat until fewer than 500. Cursor per table stored on device.
-- Local deletes push `deleted_at = now()`; pulled rows with `deleted_at` are removed locally.
+- Pull: keyset paging on `(updated_at, id)` so rows sharing a timestamp are never skipped:
+  `GET /rest/v1/<table>?select=*&or=(updated_at.gt."<ts>",and(updated_at.eq."<ts>",id.gt."<id>"))&order=updated_at.asc,id.asc&limit=500`,
+  repeat until fewer than 500. Cursor `(ts, id)` per user and table stored on device.
+- Local deletes push `deleted_at = now()` while entitled; without an entitlement (updates are
+  refused) they hard-`DELETE` own rows instead. Pulled rows with `deleted_at` are removed locally.
+- Order: pull first, then push.
 - Conflict rule: last write wins by server `updated_at`.
 
 ## iOS configuration

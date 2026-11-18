@@ -110,13 +110,11 @@ final class SubscriptionManager {
             return
         }
         do {
-            var server = try await rest.fetchEntitlement()
+            let server = try await rest.fetchEntitlement()
             if !server.isEntitled(), let local = await currentStoreKitTransaction(for: userID) {
                 // Bought on this device but not verified yet (e.g. offline at the time).
-                if let verified = try? await rest.verifySubscription(signedTransaction: local.jws) {
-                    server = verified
-                    await local.transaction.finish()
-                }
+                await process(local.transaction, jws: local.jws, userID: userID, rest: rest, reportsErrors: false)
+                if isEntitled { return finishCheck() }
             }
             apply(server, for: userID)
         } catch AuthError.sessionExpired {
@@ -131,6 +129,10 @@ final class SubscriptionManager {
                 entitlement = Entitlement.none
             }
         }
+        finishCheck()
+    }
+
+    private func finishCheck() {
         hasCheckedEntitlement = true
     }
 
@@ -219,11 +221,11 @@ final class SubscriptionManager {
         for await result in Transaction.currentEntitlements {
             guard case .verified(let transaction) = result, transaction.productID == Self.productID else { continue }
             found = true
-            if let rest, let verified = try? await rest.verifySubscription(signedTransaction: result.jwsRepresentation) {
-                apply(verified, for: userID)
+            if let rest {
+                await process(transaction, jws: result.jwsRepresentation, userID: userID, rest: rest)
             }
         }
-        await refreshEntitlement()
+        if !isEntitled { await refreshEntitlement() }
         if !found && !isEntitled {
             notice = "No DayLedger Pro subscription was found for this Apple ID."
         }
@@ -252,18 +254,43 @@ final class SubscriptionManager {
             return
         }
         guard let userID, let rest else { return }
+        await process(transaction, jws: result.jwsRepresentation, userID: userID, rest: rest)
+    }
+
+    /// Verifies one StoreKit-verified transaction with `verify-subscription` and applies the result.
+    private func process(_ transaction: Transaction, jws: String, userID: UUID, rest: SupabaseRESTClient, reportsErrors: Bool = true) async {
+        let ownedByThisAccount = transaction.appAccountToken == nil || transaction.appAccountToken == userID
         do {
-            let verified = try await rest.verifySubscription(signedTransaction: result.jwsRepresentation)
+            let verified = try await rest.verifySubscription(signedTransaction: jws)
             apply(verified, for: userID)
             await transaction.finish()
-        } catch let error as NetworkError where error.statusCode == 403 || error.statusCode == 400 {
-            // Bought for another DayLedger account on this Apple ID, or rejected: nothing to retry.
+        } catch AuthError.sessionExpired {
+            onSessionExpired?()
+        } catch let networkError as NetworkError where (400..<500).contains(networkError.statusCode ?? 0) && networkError.statusCode != 401 {
+            let code = BackendError.code(in: networkError)
+            #if DEBUG
+            if code == "invalid_signature" {
+                // Xcode's local StoreKit configuration signs transactions locally, which the
+                // server can't verify. Debug builds trust StoreKit's own check so the paywall
+                // works in the Simulator; Release builds never take this path.
+                print("[SubscriptionManager] DEBUG: server rejected a locally signed StoreKit transaction (invalid_signature); using the local entitlement.")
+                let local = Self.entitlement(from: transaction)
+                if local.isEntitled(), ownedByThisAccount {
+                    apply(local, for: userID, cache: false)
+                }
+                await transaction.finish()
+                return
+            }
+            #endif
+            // Rejected for good (another account, wrong app, not a subscription): don't retry.
             await transaction.finish()
-            await refreshEntitlement()
+            if reportsErrors {
+                error = BackendError.subscriptionError(code: code, message: BackendError.message(in: networkError))
+            }
         } catch {
             // Offline: unlock from StoreKit's own verification until the server has seen it.
             let local = Self.entitlement(from: transaction)
-            if local.isEntitled(), transaction.appAccountToken == nil || transaction.appAccountToken == userID {
+            if local.isEntitled(), ownedByThisAccount {
                 apply(local, for: userID, cache: false)
             }
         }
@@ -309,5 +336,42 @@ final class SubscriptionManager {
     func reset() {
         if let userID { defaults.removeObject(forKey: cacheKey(userID)) }
         setUser(nil)
+    }
+}
+
+/// The Edge Functions' error body: `{"error": "<code>", "message": "<human text>"}`.
+enum BackendError {
+    private struct Body: Decodable {
+        let error: String?
+        let message: String?
+    }
+
+    private static func body(_ error: NetworkError) -> Body? {
+        guard let data = error.body?.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode(Body.self, from: data)
+    }
+
+    static func code(in error: NetworkError) -> String? { body(error)?.error }
+    static func message(in error: NetworkError) -> String? { body(error)?.message }
+
+    /// What to tell the user when `verify-subscription` refuses a purchase.
+    static func subscriptionError(code: String?, message: String?) -> UserFacingError {
+        switch code {
+        case "account_mismatch":
+            return UserFacingError(title: "Subscription belongs to another account",
+                                   message: "This App Store subscription was bought for a different DayLedger account. Log in with that account, or subscribe with another Apple ID.")
+        case "subscription_in_use":
+            return UserFacingError(title: "Subscription already in use",
+                                   message: "This App Store subscription is already linked to another DayLedger account.")
+        case "bundle_mismatch":
+            return UserFacingError(title: "Purchase not for this app", message: "That purchase belongs to a different app.")
+        case "not_a_subscription":
+            return UserFacingError(title: "Not a subscription", message: "That purchase isn't a DayLedger Pro subscription.")
+        case "invalid_signature":
+            return UserFacingError(title: "Couldn't verify the purchase", message: "The App Store receipt couldn't be verified. Try \"Restore purchases\".", action: .retry)
+        default:
+            return UserFacingError(title: "Couldn't verify the purchase",
+                                   message: message ?? "Please try \"Restore purchases\" in a moment.", action: .retry)
+        }
     }
 }
