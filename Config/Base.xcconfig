@@ -1,0 +1,22 @@
+// Shared build settings for DayLedger.
+//
+// Do NOT put real values here. Copy Config/Local.example.xcconfig to Config/Local.xcconfig
+// (git-ignored) and fill in your own IDs there; it overrides the defaults below.
+
+// Bundle identifier of the app. The widget uses "$(DL_BUNDLE_ID).widget".
+DL_BUNDLE_ID = com.example.dayledger
+// App Group shared by the app and the widget. Must be registered in your Apple Developer account.
+DL_APP_GROUP_ID = group.$(DL_BUNDLE_ID)
+// Your Apple Developer Team ID (needed to run on a device).
+DL_DEVELOPMENT_TEAM =
+
+// TrueLayer (https://console.truelayer.com). "sandbox" or "live".
+TRUELAYER_ENVIRONMENT = sandbox
+TRUELAYER_CLIENT_ID =
+// Sandbox / personal development only. See README: production must exchange tokens on a backend.
+TRUELAYER_CLIENT_SECRET =
+
+// Google Cloud OAuth client of type "iOS", e.g. 1234-abcd.apps.googleusercontent.com
+GOOGLE_IOS_CLIENT_ID =
+
+#include? "Local.xcconfig"
