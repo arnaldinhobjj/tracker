@@ -17,6 +17,10 @@ struct DayLedgerApp: App {
             case .active:
                 // Also handles midnight rollover while the app was closed.
                 environment.widgetPublisher.publish()
+                Task {
+                    await environment.locationLogging.resolvePending()
+                    await environment.calendarSync.sync()
+                }
             case .background:
                 BackgroundRefresh.schedule()
             default:

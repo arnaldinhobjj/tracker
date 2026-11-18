@@ -2,7 +2,7 @@ import AuthenticationServices
 import SwiftUI
 
 struct RootView: View {
-    enum Tab: Hashable { case today, settings }
+    enum Tab: Hashable { case today, places, settings }
 
     let environment: AppEnvironment
     @State private var today: TodayViewModel
@@ -26,6 +26,10 @@ struct RootView: View {
             TodayView(model: today, connectBank: connectBank)
                 .tabItem { Label("Today", systemImage: "sterlingsign.circle") }
                 .tag(Tab.today)
+
+            PlacesView(environment: environment)
+                .tabItem { Label("Places", systemImage: "mappin.and.ellipse") }
+                .tag(Tab.places)
 
             SettingsView(environment: environment, bankModel: bankModel, onDataErased: dataErased)
                 .tabItem { Label("Settings", systemImage: "gearshape") }

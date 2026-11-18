@@ -19,7 +19,7 @@ struct TodayView: View {
                             switch error.action {
                             case .reconnectBank: connectBank()
                             case .retry: Task { await model.refresh() }
-                            case .none, .openSettings: break
+                            case .none, .openSettings, .signInGoogle: break
                             }
                         }
                     }
@@ -102,7 +102,7 @@ struct ErrorBanner: View {
                     }
                 }
                 .buttonStyle(.bordered)
-            case .none:
+            case .none, .signInGoogle:
                 EmptyView()
             }
         }

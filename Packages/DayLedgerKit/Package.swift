@@ -10,6 +10,8 @@ let package = Package(
         .library(name: "Networking", targets: ["Networking"]),
         .library(name: "SecureStore", targets: ["SecureStore"]),
         .library(name: "BankKit", targets: ["BankKit"]),
+        .library(name: "CalendarKit", targets: ["CalendarKit"]),
+        .library(name: "LocationKit", targets: ["LocationKit"]),
     ],
     targets: [
         // Pure value types shared by the app, the widget and every feature module.
@@ -21,6 +23,12 @@ let package = Package(
         // Open Banking (TrueLayer) client, mapping and categorisation.
         .target(name: "BankKit", dependencies: ["SharedModels", "Networking", "SecureStore"]),
 
+        // Google OAuth (PKCE), Calendar API, and visit <-> transaction matching.
+        .target(name: "CalendarKit", dependencies: ["SharedModels", "Networking", "SecureStore"]),
+        // CoreLocation visit monitoring and MapKit place lookup.
+        .target(name: "LocationKit", dependencies: ["SharedModels"]),
+
+        .testTarget(name: "CalendarKitTests", dependencies: ["CalendarKit", "SharedModels", "Networking", "SecureStore"]),
         .testTarget(name: "SharedModelsTests", dependencies: ["SharedModels"]),
         .testTarget(name: "BankKitTests", dependencies: ["BankKit", "SharedModels", "Networking", "SecureStore"]),
     ]

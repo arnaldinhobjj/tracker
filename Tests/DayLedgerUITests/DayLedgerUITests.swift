@@ -36,4 +36,14 @@ final class DayLedgerUITests: XCTestCase {
         }
         XCTAssertTrue(deleteButton.waitForExistence(timeout: 5))
     }
+
+    @MainActor
+    func testPlacesTabExplainsLocationIsOff() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-UITestMockData"]
+        app.launch()
+
+        app.tabBars.buttons["Places"].tap()
+        XCTAssertTrue(app.staticTexts["Location logging is off"].waitForExistence(timeout: 5))
+    }
 }

@@ -10,6 +10,10 @@ struct SettingsView: View {
             Form {
                 BankConnectionsSection(model: bankModel)
 
+                LocationSettingsSection(environment: environment, settings: environment.settings)
+
+                CalendarSettingsSection(environment: environment, settings: environment.settings, sync: environment.calendarSync)
+
                 Section("Privacy") {
                     NavigationLink {
                         PrivacyView(eraser: DataEraser(environment: environment), onErased: onDataErased)

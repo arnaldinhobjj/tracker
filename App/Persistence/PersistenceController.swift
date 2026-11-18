@@ -5,6 +5,7 @@ enum PersistenceController {
     /// Every SwiftData model the app stores. Add new models here.
     static let schema = Schema([
         StoredTransaction.self,
+        StoredVisit.self,
     ])
 
     /// The store lives in the App Group container (when available) so app extensions can share it.

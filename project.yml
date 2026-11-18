@@ -39,6 +39,10 @@ targets:
         product: SecureStore
       - package: DayLedgerKit
         product: BankKit
+      - package: DayLedgerKit
+        product: CalendarKit
+      - package: DayLedgerKit
+        product: LocationKit
       - target: DayLedgerWidget
     info:
       path: App/Info.plist
@@ -52,6 +56,8 @@ targets:
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         ITSAppUsesNonExemptEncryption: false
         UIBackgroundModes: [fetch]
+        NSLocationWhenInUseUsageDescription: DayLedger logs the places you visit (not continuous GPS) so it can match them with your spending and add them to your DayLedger calendar.
+        NSLocationAlwaysAndWhenInUseUsageDescription: Allow "Always" so DayLedger can log visits automatically when you arrive at or leave a place, even when the app is closed. Location data stays on your iPhone.
         BGTaskSchedulerPermittedIdentifiers: [app.dayledger.refresh]
         CFBundleURLTypes:
           - CFBundleURLName: app.dayledger

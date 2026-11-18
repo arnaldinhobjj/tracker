@@ -1,4 +1,5 @@
 import BankKit
+import CalendarKit
 import Foundation
 import Networking
 
@@ -9,6 +10,7 @@ struct UserFacingError: Equatable, Identifiable {
         case reconnectBank
         case openSettings
         case retry
+        case signInGoogle
     }
 
     var id: String { title + message }
@@ -28,6 +30,8 @@ struct UserFacingError: Equatable, Identifiable {
             self = Self.bank(error)
         case let error as NetworkError:
             self = Self.network(error)
+        case let error as CalendarError:
+            self = Self.calendar(error)
         default:
             self = UserFacingError(title: "Something went wrong", message: error.localizedDescription, action: .retry)
         }
@@ -47,6 +51,35 @@ struct UserFacingError: Equatable, Identifiable {
             return UserFacingError(title: "Server error", message: "The server returned an error (\(status)). Try again later.", action: .retry)
         case .invalidResponse, .decoding, .transport:
             return UserFacingError(title: "Unexpected response", message: "Something went wrong talking to the server. Try again later.", action: .retry)
+        }
+    }
+
+    static func calendar(_ error: CalendarError) -> UserFacingError {
+        switch error {
+        case .notConfigured:
+            return UserFacingError(title: "Google sign-in not set up",
+                                   message: "Add your Google iOS client ID to Config/Local.xcconfig, then rebuild.")
+        case .notSignedIn:
+            return UserFacingError(title: "Not signed in to Google", message: "Sign in with Google to write to your calendar.", action: .signInGoogle)
+        case .authorizationDenied(let reason):
+            return UserFacingError(title: "Google sign-in declined", message: "Google didn't grant access (\(reason)).", action: .signInGoogle)
+        case .stateMismatch:
+            return UserFacingError(title: "Couldn't verify the Google sign-in", message: "Please try again.", action: .signInGoogle)
+        case .reauthenticationRequired:
+            return UserFacingError(title: "Sign in to Google again",
+                                   message: "Your Google session expired. (Apps in Google's \"Testing\" mode expire sign-ins after 7 days.)",
+                                   action: .signInGoogle)
+        case .insufficientPermissions:
+            return UserFacingError(title: "Calendar permission missing",
+                                   message: "Sign in again and allow DayLedger to manage its own calendar.", action: .signInGoogle)
+        case .calendarNotFound:
+            return UserFacingError(title: "Calendar not found", message: "The DayLedger calendar will be recreated on the next sync.", action: .retry)
+        case .rateLimited:
+            return UserFacingError(title: "Google is busy", message: "Too many requests. DayLedger will try again later.", action: .retry)
+        case .network(let error):
+            return network(error)
+        case .api(let status, let message):
+            return UserFacingError(title: "Google Calendar error", message: message.isEmpty ? "Error \(status)." : message, action: .retry)
         }
     }
 

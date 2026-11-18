@@ -57,9 +57,10 @@ public enum SpendCategory: String, Codable, CaseIterable, Sendable, Hashable {
     /// whether a transaction may be matched to a visit on time alone.
     public var isTypicallyInPerson: Bool {
         switch self {
-        case .groceries, .eatingOut, .coffee, .shopping, .entertainment, .health, .cash:
+        case .groceries, .eatingOut, .coffee, .shopping, .health, .cash:
             return true
-        case .transport, .bills, .travel, .transfer, .income, .other:
+        // Entertainment is often a subscription (Netflix, Spotify), so it needs a name match.
+        case .entertainment, .transport, .bills, .travel, .transfer, .income, .other:
             return false
         }
     }

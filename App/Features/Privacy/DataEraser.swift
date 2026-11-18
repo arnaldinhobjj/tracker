@@ -10,8 +10,23 @@ struct DataEraser {
         var failures: [String] = []
     }
 
-    func eraseAll() async -> Report {
+    func eraseAll(deleteGoogleCalendar: Bool) async -> Report {
         var report = Report()
+
+        // 0. Stop collecting before deleting.
+        environment.locationLogging.setEnabled(false)
+        environment.settings.calendarWritingEnabled = false
+
+        // Google: optionally remove the DayLedger calendar, then revoke the sign-in.
+        if deleteGoogleCalendar && environment.googleAuth.isSignedIn {
+            do {
+                try await environment.calendarSync.deleteCalendar()
+            } catch {
+                report.failures.append("Google calendar: \(UserFacingError(error).message)")
+            }
+        }
+        await environment.googleAuth.signOut()
+        environment.calendarSync.forgetCalendar()
 
         // 1. Revoke bank consent with TrueLayer and forget the connections.
         await environment.bankService.disconnectAll()
@@ -19,6 +34,7 @@ struct DataEraser {
         // 2. Local database (transactions and everything else cached).
         do {
             try environment.transactionRepository.deleteAll()
+            try environment.visitRepository.deleteAll()
         } catch {
             report.failures.append("Local database: \(error.localizedDescription)")
         }
@@ -38,6 +54,7 @@ struct DataEraser {
         for key in environment.defaults.dictionaryRepresentation().keys {
             environment.defaults.removeObject(forKey: key)
         }
+        environment.settings.resetToDefaults()
         return report
     }
 }

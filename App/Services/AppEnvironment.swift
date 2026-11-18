@@ -1,5 +1,7 @@
 import BankKit
+import CalendarKit
 import Foundation
+import LocationKit
 import Observation
 import SecureStore
 import SharedModels
@@ -17,6 +19,11 @@ final class AppEnvironment {
     let transactionRepository: TransactionRepository
     let transactionSync: TransactionSyncService
     let widgetPublisher: WidgetPublisher
+    let settings: AppSettings
+    let visitRepository: VisitRepository
+    let googleAuth: GoogleAuthService
+    let calendarSync: CalendarSyncService
+    let locationLogging: LocationLoggingService
     /// True when launched by UI tests: in-memory store, mock bank, no Keychain.
     let isUITesting: Bool
 
@@ -41,8 +48,35 @@ final class AppEnvironment {
             repository: transactionRepository,
             bank: bankService
         )
-        // Every successful sync refreshes the widget if the numbers changed.
-        transactionSync.onSynced = { [widgetPublisher] in widgetPublisher.publish() }
+        settings = AppSettings(defaults: defaults)
+        visitRepository = VisitRepository(container: modelContainer)
+        googleAuth = GoogleAuthService(configuration: GoogleOAuthConfiguration(clientID: configuration.googleClientID), store: secureStore)
+        calendarSync = CalendarSyncService(
+            auth: googleAuth,
+            client: GoogleCalendarClient(tokens: googleAuth),
+            visits: visitRepository,
+            transactions: transactionRepository,
+            settings: settings,
+            defaults: defaults
+        )
+        locationLogging = LocationLoggingService(
+            monitor: LocationMonitor(),
+            repository: visitRepository,
+            resolver: MapKitPlaceResolver(),
+            settings: settings
+        )
+
+        // New transactions can complete a visit's spending, so re-sync the calendar after each bank sync.
+        transactionSync.onSynced = { [widgetPublisher, calendarSync] in
+            widgetPublisher.publish()
+            Task { await calendarSync.sync() }
+        }
+        locationLogging.onVisitsChanged = { [calendarSync] in
+            await calendarSync.sync()
+        }
+        // Must happen at launch: when iOS relaunches the app for a visit, the location manager
+        // has to exist (with monitoring on) to receive it.
+        locationLogging.resumeIfEnabled()
     }
 
     /// Entry point for BGAppRefreshTask: fetch, store, update the widget, schedule the next one.
@@ -50,6 +84,8 @@ final class AppEnvironment {
         BackgroundRefresh.schedule()
         _ = await transactionSync.sync()
         widgetPublisher.publish()
+        await locationLogging.resolvePending()
+        await calendarSync.sync()
     }
 
     static func makeDefault(processInfo: ProcessInfo = .processInfo) -> AppEnvironment {

@@ -7,6 +7,7 @@ struct PrivacyView: View {
     @State private var isConfirming = false
     @State private var isErasing = false
     @State private var resultMessage: String?
+    @State private var deleteGoogleCalendar = true
 
     var body: some View {
         List {
@@ -35,6 +36,7 @@ struct PrivacyView: View {
             }
 
             Section {
+                Toggle("Also delete the DayLedger calendar from Google", isOn: $deleteGoogleCalendar)
                 Button(role: .destructive) {
                     isConfirming = true
                 } label: {
@@ -47,7 +49,7 @@ struct PrivacyView: View {
                 .disabled(isErasing)
                 .accessibilityIdentifier("deleteAllData")
             } footer: {
-                Text("Disconnects your banks, signs out of Google and AI, deletes every transaction and visit on this device, and clears all keys from the Keychain. Data already held by your bank, Google or an AI provider is governed by their own policies.")
+                Text("Stops location logging, disconnects your banks, signs out of Google and AI, deletes every transaction and visit on this device, and clears all keys from the Keychain. Data already held by your bank, Google or an AI provider is governed by their own policies.")
             }
         }
         .navigationTitle("Privacy & your data")
@@ -67,7 +69,7 @@ struct PrivacyView: View {
     private func erase() {
         isErasing = true
         Task {
-            let report = await eraser.eraseAll()
+            let report = await eraser.eraseAll(deleteGoogleCalendar: deleteGoogleCalendar)
             isErasing = false
             resultMessage = report.failures.isEmpty
                 ? "All DayLedger data has been removed from this device."
