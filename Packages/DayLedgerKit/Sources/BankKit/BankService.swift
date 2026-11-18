@@ -50,6 +50,11 @@ public struct BankAuthorizationRequest: Sendable, Equatable {
 public struct BankConnectionFailure: Sendable, Equatable {
     public let connection: BankConnection
     public let error: BankError
+
+    public init(connection: BankConnection, error: BankError) {
+        self.connection = connection
+        self.error = error
+    }
 }
 
 public struct BankFetchResult: Sendable {
