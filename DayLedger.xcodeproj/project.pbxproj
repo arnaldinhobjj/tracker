@@ -1,0 +1,1011 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		03CF7091961A96BCDBE5F815 /* StubHTTPClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10B0FCE771623AE4206C0145 /* StubHTTPClient.swift */; };
+		0A514FFF69A8179978C58F63 /* DayLedgerUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A0FCB2CBDC5922D976F9EEA /* DayLedgerUITests.swift */; };
+		0DBD15BA012D2217EBD8CE9C /* PersistenceController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36D34223FEF15C3E8632C1F4 /* PersistenceController.swift */; };
+		13B6FCE2B64386FD2B76DA61 /* BackgroundRefresh.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEC8D6D1821B63AF7E9889B1 /* BackgroundRefresh.swift */; };
+		1A0109DE18741071699A1F05 /* TodayViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16513DE438FCB182CB1F68C2 /* TodayViewModel.swift */; };
+		1AB106462152997DA3533082 /* PlacesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77D3B6CAD4457813DE2BDBC5 /* PlacesView.swift */; };
+		1C8E260C0112A575BCCE39C4 /* CalendarSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2AD9B032BB6EB5A9EF6E6FF /* CalendarSyncService.swift */; };
+		20D686E7CB4F55FA804E31C3 /* TransactionSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83AD3F2DDD9278FCBFCA91CD /* TransactionSyncService.swift */; };
+		28DAB1212923C36985F9CF88 /* DayLedgerWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 46B9181C4E2553F85A4752DE /* DayLedgerWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		2F36E0FD59947C8264EFFF0F /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 10E168142A0E402A4082D0D0 /* SwiftUI.framework */; };
+		30243903D125493E35FF3D3E /* Networking in Frameworks */ = {isa = PBXBuildFile; productRef = 72B7A188A553F6893287013A /* Networking */; };
+		312365316B6899267F6797AD /* DayLedgerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D34510AB02D32675ED46C35 /* DayLedgerApp.swift */; };
+		35C224C87A1D75C73064C1B4 /* TodayViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 854A3006B3127EB42E6C1864 /* TodayViewModelTests.swift */; };
+		3CFE45CAAD8500F23E90C575 /* DataEraser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0283212509807C66A7F9719E /* DataEraser.swift */; };
+		3E77E7FB3E4A9ACCD9BB0439 /* AssistantView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0DAC7B649B8E1EB078CB72C /* AssistantView.swift */; };
+		434E5DF0AD93EE45C531B6B1 /* AppEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7399DCD528FEEC3A2C5505DC /* AppEnvironment.swift */; };
+		4B7353D88879CAB2DDC8F02E /* SpendProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BDACBB32BB907C9A82A1937 /* SpendProvider.swift */; };
+		5414E483B34BD23EDB9147DF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2B47B0093961B07CB4855A99 /* Assets.xcassets */; };
+		57995270EA5957BC312808B8 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4AA696D8D3EADB758D8453 /* AppSettings.swift */; };
+		57B4BD473C2BF789C5DEBC65 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 109B4F88E6ECACBB5309DFEA /* Assets.xcassets */; };
+		589C2FC9A9DAF2F302BE6D4F /* WidgetPublisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E6BDD94DD3E0BC3307F5AAE /* WidgetPublisher.swift */; };
+		5EAF591DC479EC9B5C3308F6 /* VisitRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4FE49223DCDCC41C1155604 /* VisitRepository.swift */; };
+		5EBE2FF6E66F6110991D6658 /* SharedModels in Frameworks */ = {isa = PBXBuildFile; productRef = 25502FEF318662A3FB589148 /* SharedModels */; };
+		5F162D32EBAD016515E83E7B /* AISettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4756F3F6A51909994567343 /* AISettingsSection.swift */; };
+		648146DCB8630079434A1C9C /* TransactionRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4010329A1F675703A504AD2 /* TransactionRepository.swift */; };
+		66DA5245C2AB3863949BE3CB /* CalendarSyncServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7162884E2817615EE49E1170 /* CalendarSyncServiceTests.swift */; };
+		71BA8EDB47081E38BEC4DB06 /* PrivacyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2854B7A8CC2B48C31D6F414 /* PrivacyView.swift */; };
+		75AA87CB75B0AA638934501E /* StoredVisit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1286669E58BDC7A212FD12DD /* StoredVisit.swift */; };
+		7ABB5F93FF8B7C18F640783C /* SecureStore in Frameworks */ = {isa = PBXBuildFile; productRef = 89D5431213A3FD3DD392339B /* SecureStore */; };
+		7E348EEE2F72DF5F38915276 /* SharedModels in Frameworks */ = {isa = PBXBuildFile; productRef = B2B2323B314102EEC41B9AA0 /* SharedModels */; };
+		80B0A9DC05B4182668B959BB /* CalendarSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FF38CD569C1321C0FA719E0 /* CalendarSettingsSection.swift */; };
+		84E0B705BD0B49884BD30E89 /* LocationSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D8EF86825E39A1DB2B1DD1B /* LocationSettingsSection.swift */; };
+		89F4922AEE045451B29B8143 /* CalendarKit in Frameworks */ = {isa = PBXBuildFile; productRef = EB89FBBCA47BE68B0930B2F9 /* CalendarKit */; };
+		912BF50C7A492F4CE4D5BCEC /* AssistantViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4CAB8F911900D564ACC025E /* AssistantViewModel.swift */; };
+		91A6F7E1B37D4A1199E35D0B /* AIKit in Frameworks */ = {isa = PBXBuildFile; productRef = 80AE5711FC0A9849811819CA /* AIKit */; };
+		97B249DC0895C748DB8C8AD9 /* BankConnectionViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30FAA8894783C3FE676EEF80 /* BankConnectionViewModel.swift */; };
+		9D8E64F42B8E894B9119D1FE /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35A9AA6A42E3433B3EF68F65 /* SettingsView.swift */; };
+		9EEBFF52FF26091CD6C2ED90 /* BankConnectionsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F07CDCA1F975A96343D6C1A /* BankConnectionsSection.swift */; };
+		A091C35FF70F13D017B4CC82 /* UserFacingError.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3C5E3A936929C76FA753FE6 /* UserFacingError.swift */; };
+		A4F1D743EE39CA4967FD44E3 /* AppConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18906B2BD101695C7EE0DC98 /* AppConfiguration.swift */; };
+		B1FB04B41B437490986CB693 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76DA3A7F1999BD0455A85F96 /* RootView.swift */; };
+		BD8D35D938CBA4BB7C994F59 /* LocationLoggingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA204CCFA01BA039DD1254CA /* LocationLoggingService.swift */; };
+		C4E30C037376A83E028BFE2E /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC5E4F7A6381ECC583886369 /* TodayView.swift */; };
+		C5173D20404200791D70A453 /* StoredTransaction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CA0A06C429480E14C93736A /* StoredTransaction.swift */; };
+		CC15CAB14B6E9A813F0D8F4F /* BankKit in Frameworks */ = {isa = PBXBuildFile; productRef = 3CFCABE4ABA01105B912BEBD /* BankKit */; };
+		D1A157987B70DA7038ABFF50 /* TransactionRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FA45C6C6FB058332677243F /* TransactionRow.swift */; };
+		D54265C7D1D90196A5B41B63 /* SpendWidgetViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB03961D1EF994797468B03A /* SpendWidgetViews.swift */; };
+		DC8B7B02C4E4C5EA38ABE6BE /* LocationKit in Frameworks */ = {isa = PBXBuildFile; productRef = 3E1FDB930816A552D3BB51A4 /* LocationKit */; };
+		DF0CE5CE6E4D48C9D24F9256 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A6E2293177DB1C588A8412A3 /* WidgetKit.framework */; };
+		EB5CE9D5F624C35E34223232 /* DayLedgerWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B53FE2AACD9B06C366CFF6E /* DayLedgerWidgetBundle.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		716EBEA9687B8C4D3C2E723E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1C3CC8F00BFDD5EBD6AA9691 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 29BFDD88DD31F65F833C1BED;
+			remoteInfo = DayLedger;
+		};
+		9D5B954DCCF59714C4D6CD33 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1C3CC8F00BFDD5EBD6AA9691 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 29BFDD88DD31F65F833C1BED;
+			remoteInfo = DayLedger;
+		};
+		CD406E5D15BEFB80AA0BC1C9 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1C3CC8F00BFDD5EBD6AA9691 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 45F8080AC9953CF5AD896713;
+			remoteInfo = DayLedgerWidget;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		AB38B1FC6D1862AEFC2DDE55 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				28DAB1212923C36985F9CF88 /* DayLedgerWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		0283212509807C66A7F9719E /* DataEraser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataEraser.swift; sourceTree = "<group>"; };
+		0A129AA49AD787F91789B9FA /* DayLedgerWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DayLedgerWidget.entitlements; sourceTree = "<group>"; };
+		109B4F88E6ECACBB5309DFEA /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		10B0FCE771623AE4206C0145 /* StubHTTPClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StubHTTPClient.swift; sourceTree = "<group>"; };
+		10E168142A0E402A4082D0D0 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		1286669E58BDC7A212FD12DD /* StoredVisit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoredVisit.swift; sourceTree = "<group>"; };
+		16513DE438FCB182CB1F68C2 /* TodayViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayViewModel.swift; sourceTree = "<group>"; };
+		18906B2BD101695C7EE0DC98 /* AppConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfiguration.swift; sourceTree = "<group>"; };
+		2B47B0093961B07CB4855A99 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		2BDACBB32BB907C9A82A1937 /* SpendProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpendProvider.swift; sourceTree = "<group>"; };
+		2D34510AB02D32675ED46C35 /* DayLedgerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayLedgerApp.swift; sourceTree = "<group>"; };
+		2F07CDCA1F975A96343D6C1A /* BankConnectionsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BankConnectionsSection.swift; sourceTree = "<group>"; };
+		30FAA8894783C3FE676EEF80 /* BankConnectionViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BankConnectionViewModel.swift; sourceTree = "<group>"; };
+		35A9AA6A42E3433B3EF68F65 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		36D34223FEF15C3E8632C1F4 /* PersistenceController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistenceController.swift; sourceTree = "<group>"; };
+		41A6BAEB2DF44AF186E9598C /* DayLedgerTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = DayLedgerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		46B9181C4E2553F85A4752DE /* DayLedgerWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = DayLedgerWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		4D8EF86825E39A1DB2B1DD1B /* LocationSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationSettingsSection.swift; sourceTree = "<group>"; };
+		4FA45C6C6FB058332677243F /* TransactionRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransactionRow.swift; sourceTree = "<group>"; };
+		556E530FB17BB60AA5B63EFC /* DayLedgerKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DayLedgerKit; path = Packages/DayLedgerKit; sourceTree = SOURCE_ROOT; };
+		5A0FCB2CBDC5922D976F9EEA /* DayLedgerUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayLedgerUITests.swift; sourceTree = "<group>"; };
+		5E6BDD94DD3E0BC3307F5AAE /* WidgetPublisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetPublisher.swift; sourceTree = "<group>"; };
+		67381585BE28958806D9452D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		6B53FE2AACD9B06C366CFF6E /* DayLedgerWidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayLedgerWidgetBundle.swift; sourceTree = "<group>"; };
+		7162884E2817615EE49E1170 /* CalendarSyncServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarSyncServiceTests.swift; sourceTree = "<group>"; };
+		7399DCD528FEEC3A2C5505DC /* AppEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEnvironment.swift; sourceTree = "<group>"; };
+		76DA3A7F1999BD0455A85F96 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		76FCDB8860633E672EE797D6 /* DayLedgerUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = DayLedgerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		77D3B6CAD4457813DE2BDBC5 /* PlacesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlacesView.swift; sourceTree = "<group>"; };
+		7CA0A06C429480E14C93736A /* StoredTransaction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoredTransaction.swift; sourceTree = "<group>"; };
+		7FF38CD569C1321C0FA719E0 /* CalendarSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarSettingsSection.swift; sourceTree = "<group>"; };
+		83AD3F2DDD9278FCBFCA91CD /* TransactionSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransactionSyncService.swift; sourceTree = "<group>"; };
+		854A3006B3127EB42E6C1864 /* TodayViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayViewModelTests.swift; sourceTree = "<group>"; };
+		8A4AA696D8D3EADB758D8453 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
+		8F771CBF702D17B818C00142 /* DayLedger.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = DayLedger.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A2AD9B032BB6EB5A9EF6E6FF /* CalendarSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarSyncService.swift; sourceTree = "<group>"; };
+		A6E2293177DB1C588A8412A3 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		B3C5E3A936929C76FA753FE6 /* UserFacingError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserFacingError.swift; sourceTree = "<group>"; };
+		B4CAB8F911900D564ACC025E /* AssistantViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantViewModel.swift; sourceTree = "<group>"; };
+		B6124A622B0AC79CF289E3E4 /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
+		BA204CCFA01BA039DD1254CA /* LocationLoggingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationLoggingService.swift; sourceTree = "<group>"; };
+		BEC8D6D1821B63AF7E9889B1 /* BackgroundRefresh.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundRefresh.swift; sourceTree = "<group>"; };
+		CEAC528800969BC163066304 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		E4756F3F6A51909994567343 /* AISettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AISettingsSection.swift; sourceTree = "<group>"; };
+		E4FE49223DCDCC41C1155604 /* VisitRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisitRepository.swift; sourceTree = "<group>"; };
+		E9612F8BFD6DAFCE12CE6055 /* DayLedger.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DayLedger.entitlements; sourceTree = "<group>"; };
+		EC5E4F7A6381ECC583886369 /* TodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayView.swift; sourceTree = "<group>"; };
+		F0DAC7B649B8E1EB078CB72C /* AssistantView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantView.swift; sourceTree = "<group>"; };
+		F2854B7A8CC2B48C31D6F414 /* PrivacyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyView.swift; sourceTree = "<group>"; };
+		F4010329A1F675703A504AD2 /* TransactionRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransactionRepository.swift; sourceTree = "<group>"; };
+		FB03961D1EF994797468B03A /* SpendWidgetViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpendWidgetViews.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		6621D4FBAE27CB47E2A8904E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5EBE2FF6E66F6110991D6658 /* SharedModels in Frameworks */,
+				30243903D125493E35FF3D3E /* Networking in Frameworks */,
+				7ABB5F93FF8B7C18F640783C /* SecureStore in Frameworks */,
+				CC15CAB14B6E9A813F0D8F4F /* BankKit in Frameworks */,
+				89F4922AEE045451B29B8143 /* CalendarKit in Frameworks */,
+				DC8B7B02C4E4C5EA38ABE6BE /* LocationKit in Frameworks */,
+				91A6F7E1B37D4A1199E35D0B /* AIKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BC8F8ED8AC910B6D1B7975C1 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7E348EEE2F72DF5F38915276 /* SharedModels in Frameworks */,
+				DF0CE5CE6E4D48C9D24F9256 /* WidgetKit.framework in Frameworks */,
+				2F36E0FD59947C8264EFFF0F /* SwiftUI.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		2B770742B3C9E8846BCE2DD8 /* Widget */ = {
+			isa = PBXGroup;
+			children = (
+				109B4F88E6ECACBB5309DFEA /* Assets.xcassets */,
+				0A129AA49AD787F91789B9FA /* DayLedgerWidget.entitlements */,
+				6B53FE2AACD9B06C366CFF6E /* DayLedgerWidgetBundle.swift */,
+				67381585BE28958806D9452D /* Info.plist */,
+				2BDACBB32BB907C9A82A1937 /* SpendProvider.swift */,
+				FB03961D1EF994797468B03A /* SpendWidgetViews.swift */,
+			);
+			path = Widget;
+			sourceTree = "<group>";
+		};
+		30BB6625F6A5985674E3D391 = {
+			isa = PBXGroup;
+			children = (
+				7FB01398B27F2634744F394E /* App */,
+				A16E415036A1147D8816EC6A /* Config */,
+				8A0FD01EB4CAC569F712F725 /* Packages */,
+				DC706B265F75532896CB2F22 /* Tests */,
+				2B770742B3C9E8846BCE2DD8 /* Widget */,
+				FB6C56B84E4549E87E1318E8 /* Frameworks */,
+				AEEE4390E8E78A0D19EEA026 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		34AB10C2500537DB8D99693F /* Bank */ = {
+			isa = PBXGroup;
+			children = (
+				2F07CDCA1F975A96343D6C1A /* BankConnectionsSection.swift */,
+				30FAA8894783C3FE676EEF80 /* BankConnectionViewModel.swift */,
+			);
+			path = Bank;
+			sourceTree = "<group>";
+		};
+		38B7848B4D3716E963AC194F /* DayLedgerTests */ = {
+			isa = PBXGroup;
+			children = (
+				7162884E2817615EE49E1170 /* CalendarSyncServiceTests.swift */,
+				10B0FCE771623AE4206C0145 /* StubHTTPClient.swift */,
+				854A3006B3127EB42E6C1864 /* TodayViewModelTests.swift */,
+			);
+			path = DayLedgerTests;
+			sourceTree = "<group>";
+		};
+		4744D5B27C38F4D48801D4E6 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				E4756F3F6A51909994567343 /* AISettingsSection.swift */,
+				7FF38CD569C1321C0FA719E0 /* CalendarSettingsSection.swift */,
+				4D8EF86825E39A1DB2B1DD1B /* LocationSettingsSection.swift */,
+				35A9AA6A42E3433B3EF68F65 /* SettingsView.swift */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
+		58B9D5891C41BFA2E5996D86 /* Privacy */ = {
+			isa = PBXGroup;
+			children = (
+				0283212509807C66A7F9719E /* DataEraser.swift */,
+				F2854B7A8CC2B48C31D6F414 /* PrivacyView.swift */,
+			);
+			path = Privacy;
+			sourceTree = "<group>";
+		};
+		6E599C2F3A8484B1D43626D2 /* Features */ = {
+			isa = PBXGroup;
+			children = (
+				74A763DD3FA529AD7BDFFAEC /* Assistant */,
+				34AB10C2500537DB8D99693F /* Bank */,
+				7041EBE10151BEC311E2FF47 /* Places */,
+				58B9D5891C41BFA2E5996D86 /* Privacy */,
+				4744D5B27C38F4D48801D4E6 /* Settings */,
+				86AEDC19DA11048AC93F0BF8 /* Today */,
+			);
+			path = Features;
+			sourceTree = "<group>";
+		};
+		7041EBE10151BEC311E2FF47 /* Places */ = {
+			isa = PBXGroup;
+			children = (
+				77D3B6CAD4457813DE2BDBC5 /* PlacesView.swift */,
+			);
+			path = Places;
+			sourceTree = "<group>";
+		};
+		74A763DD3FA529AD7BDFFAEC /* Assistant */ = {
+			isa = PBXGroup;
+			children = (
+				F0DAC7B649B8E1EB078CB72C /* AssistantView.swift */,
+				B4CAB8F911900D564ACC025E /* AssistantViewModel.swift */,
+			);
+			path = Assistant;
+			sourceTree = "<group>";
+		};
+		7FB01398B27F2634744F394E /* App */ = {
+			isa = PBXGroup;
+			children = (
+				E9612F8BFD6DAFCE12CE6055 /* DayLedger.entitlements */,
+				2D34510AB02D32675ED46C35 /* DayLedgerApp.swift */,
+				CEAC528800969BC163066304 /* Info.plist */,
+				76DA3A7F1999BD0455A85F96 /* RootView.swift */,
+				6E599C2F3A8484B1D43626D2 /* Features */,
+				AC6F34C419C843CB3DC78FC3 /* Persistence */,
+				B0441D55A7D092D766E01335 /* Resources */,
+				853E8D412D770D180909E537 /* Services */,
+				8071537DD622C666946CA01B /* Support */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		8071537DD622C666946CA01B /* Support */ = {
+			isa = PBXGroup;
+			children = (
+				18906B2BD101695C7EE0DC98 /* AppConfiguration.swift */,
+				B3C5E3A936929C76FA753FE6 /* UserFacingError.swift */,
+			);
+			path = Support;
+			sourceTree = "<group>";
+		};
+		853E8D412D770D180909E537 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				7399DCD528FEEC3A2C5505DC /* AppEnvironment.swift */,
+				8A4AA696D8D3EADB758D8453 /* AppSettings.swift */,
+				BEC8D6D1821B63AF7E9889B1 /* BackgroundRefresh.swift */,
+				A2AD9B032BB6EB5A9EF6E6FF /* CalendarSyncService.swift */,
+				BA204CCFA01BA039DD1254CA /* LocationLoggingService.swift */,
+				83AD3F2DDD9278FCBFCA91CD /* TransactionSyncService.swift */,
+				5E6BDD94DD3E0BC3307F5AAE /* WidgetPublisher.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		86AEDC19DA11048AC93F0BF8 /* Today */ = {
+			isa = PBXGroup;
+			children = (
+				EC5E4F7A6381ECC583886369 /* TodayView.swift */,
+				16513DE438FCB182CB1F68C2 /* TodayViewModel.swift */,
+				4FA45C6C6FB058332677243F /* TransactionRow.swift */,
+			);
+			path = Today;
+			sourceTree = "<group>";
+		};
+		8A0FD01EB4CAC569F712F725 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				556E530FB17BB60AA5B63EFC /* DayLedgerKit */,
+			);
+			path = Packages;
+			sourceTree = "<group>";
+		};
+		A16E415036A1147D8816EC6A /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				B6124A622B0AC79CF289E3E4 /* Base.xcconfig */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+		AC6F34C419C843CB3DC78FC3 /* Persistence */ = {
+			isa = PBXGroup;
+			children = (
+				36D34223FEF15C3E8632C1F4 /* PersistenceController.swift */,
+				7CA0A06C429480E14C93736A /* StoredTransaction.swift */,
+				1286669E58BDC7A212FD12DD /* StoredVisit.swift */,
+				F4010329A1F675703A504AD2 /* TransactionRepository.swift */,
+				E4FE49223DCDCC41C1155604 /* VisitRepository.swift */,
+			);
+			path = Persistence;
+			sourceTree = "<group>";
+		};
+		AEEE4390E8E78A0D19EEA026 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				8F771CBF702D17B818C00142 /* DayLedger.app */,
+				41A6BAEB2DF44AF186E9598C /* DayLedgerTests.xctest */,
+				76FCDB8860633E672EE797D6 /* DayLedgerUITests.xctest */,
+				46B9181C4E2553F85A4752DE /* DayLedgerWidget.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		B0441D55A7D092D766E01335 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				2B47B0093961B07CB4855A99 /* Assets.xcassets */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		DC706B265F75532896CB2F22 /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				38B7848B4D3716E963AC194F /* DayLedgerTests */,
+				F344FA87BFFAA4FAA0EAE56D /* DayLedgerUITests */,
+			);
+			path = Tests;
+			sourceTree = "<group>";
+		};
+		F344FA87BFFAA4FAA0EAE56D /* DayLedgerUITests */ = {
+			isa = PBXGroup;
+			children = (
+				5A0FCB2CBDC5922D976F9EEA /* DayLedgerUITests.swift */,
+			);
+			path = DayLedgerUITests;
+			sourceTree = "<group>";
+		};
+		FB6C56B84E4549E87E1318E8 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				10E168142A0E402A4082D0D0 /* SwiftUI.framework */,
+				A6E2293177DB1C588A8412A3 /* WidgetKit.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		29BFDD88DD31F65F833C1BED /* DayLedger */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9C76B5DBC556C87D808D24A1 /* Build configuration list for PBXNativeTarget "DayLedger" */;
+			buildPhases = (
+				674C17C6017B41539B3F1B78 /* Sources */,
+				A29D95AF8D574CA89B68FF01 /* Resources */,
+				6621D4FBAE27CB47E2A8904E /* Frameworks */,
+				AB38B1FC6D1862AEFC2DDE55 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				24F7E1E1180D2A79E9F015FB /* PBXTargetDependency */,
+			);
+			name = DayLedger;
+			packageProductDependencies = (
+				25502FEF318662A3FB589148 /* SharedModels */,
+				72B7A188A553F6893287013A /* Networking */,
+				89D5431213A3FD3DD392339B /* SecureStore */,
+				3CFCABE4ABA01105B912BEBD /* BankKit */,
+				EB89FBBCA47BE68B0930B2F9 /* CalendarKit */,
+				3E1FDB930816A552D3BB51A4 /* LocationKit */,
+				80AE5711FC0A9849811819CA /* AIKit */,
+			);
+			productName = DayLedger;
+			productReference = 8F771CBF702D17B818C00142 /* DayLedger.app */;
+			productType = "com.apple.product-type.application";
+		};
+		45F8080AC9953CF5AD896713 /* DayLedgerWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1395F55F66A2438D4B0B3B69 /* Build configuration list for PBXNativeTarget "DayLedgerWidget" */;
+			buildPhases = (
+				D8F106A427B054D1446179DB /* Sources */,
+				CA7E6B301831DF0647E75261 /* Resources */,
+				BC8F8ED8AC910B6D1B7975C1 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = DayLedgerWidget;
+			packageProductDependencies = (
+				B2B2323B314102EEC41B9AA0 /* SharedModels */,
+			);
+			productName = DayLedgerWidget;
+			productReference = 46B9181C4E2553F85A4752DE /* DayLedgerWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		57C82A49BA09A8ED27D68C86 /* DayLedgerTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B8AC971F938C22EA68821BE5 /* Build configuration list for PBXNativeTarget "DayLedgerTests" */;
+			buildPhases = (
+				7DCA646DD38103BA644E7CA2 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				521BF97C7F8390C895571634 /* PBXTargetDependency */,
+			);
+			name = DayLedgerTests;
+			packageProductDependencies = (
+			);
+			productName = DayLedgerTests;
+			productReference = 41A6BAEB2DF44AF186E9598C /* DayLedgerTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		90FAEF12942EB43472949E00 /* DayLedgerUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F72C10960EA7AB461C047716 /* Build configuration list for PBXNativeTarget "DayLedgerUITests" */;
+			buildPhases = (
+				BFB4ACDA2F4231D8BD61BD7E /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				B7A7C737AC7324FC248B04E6 /* PBXTargetDependency */,
+			);
+			name = DayLedgerUITests;
+			packageProductDependencies = (
+			);
+			productName = DayLedgerUITests;
+			productReference = 76FCDB8860633E672EE797D6 /* DayLedgerUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		1C3CC8F00BFDD5EBD6AA9691 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					29BFDD88DD31F65F833C1BED = {
+						DevelopmentTeam = "$(DL_DEVELOPMENT_TEAM)";
+						ProvisioningStyle = Automatic;
+					};
+					45F8080AC9953CF5AD896713 = {
+						DevelopmentTeam = "$(DL_DEVELOPMENT_TEAM)";
+						ProvisioningStyle = Automatic;
+					};
+					57C82A49BA09A8ED27D68C86 = {
+						DevelopmentTeam = "$(DL_DEVELOPMENT_TEAM)";
+						ProvisioningStyle = Automatic;
+					};
+					90FAEF12942EB43472949E00 = {
+						DevelopmentTeam = "$(DL_DEVELOPMENT_TEAM)";
+						ProvisioningStyle = Automatic;
+						TestTargetID = 29BFDD88DD31F65F833C1BED;
+					};
+				};
+			};
+			buildConfigurationList = 9CD002C42FA55EE89B2376D3 /* Build configuration list for PBXProject "DayLedger" */;
+			developmentRegion = "en-GB";
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				"en-GB",
+			);
+			mainGroup = 30BB6625F6A5985674E3D391;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				65F0CB73815995FA4379AD60 /* XCLocalSwiftPackageReference "Packages/DayLedgerKit" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = AEEE4390E8E78A0D19EEA026 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				29BFDD88DD31F65F833C1BED /* DayLedger */,
+				45F8080AC9953CF5AD896713 /* DayLedgerWidget */,
+				57C82A49BA09A8ED27D68C86 /* DayLedgerTests */,
+				90FAEF12942EB43472949E00 /* DayLedgerUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A29D95AF8D574CA89B68FF01 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5414E483B34BD23EDB9147DF /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CA7E6B301831DF0647E75261 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				57B4BD473C2BF789C5DEBC65 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		674C17C6017B41539B3F1B78 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5F162D32EBAD016515E83E7B /* AISettingsSection.swift in Sources */,
+				A4F1D743EE39CA4967FD44E3 /* AppConfiguration.swift in Sources */,
+				434E5DF0AD93EE45C531B6B1 /* AppEnvironment.swift in Sources */,
+				57995270EA5957BC312808B8 /* AppSettings.swift in Sources */,
+				3E77E7FB3E4A9ACCD9BB0439 /* AssistantView.swift in Sources */,
+				912BF50C7A492F4CE4D5BCEC /* AssistantViewModel.swift in Sources */,
+				13B6FCE2B64386FD2B76DA61 /* BackgroundRefresh.swift in Sources */,
+				97B249DC0895C748DB8C8AD9 /* BankConnectionViewModel.swift in Sources */,
+				9EEBFF52FF26091CD6C2ED90 /* BankConnectionsSection.swift in Sources */,
+				80B0A9DC05B4182668B959BB /* CalendarSettingsSection.swift in Sources */,
+				1C8E260C0112A575BCCE39C4 /* CalendarSyncService.swift in Sources */,
+				3CFE45CAAD8500F23E90C575 /* DataEraser.swift in Sources */,
+				312365316B6899267F6797AD /* DayLedgerApp.swift in Sources */,
+				BD8D35D938CBA4BB7C994F59 /* LocationLoggingService.swift in Sources */,
+				84E0B705BD0B49884BD30E89 /* LocationSettingsSection.swift in Sources */,
+				0DBD15BA012D2217EBD8CE9C /* PersistenceController.swift in Sources */,
+				1AB106462152997DA3533082 /* PlacesView.swift in Sources */,
+				71BA8EDB47081E38BEC4DB06 /* PrivacyView.swift in Sources */,
+				B1FB04B41B437490986CB693 /* RootView.swift in Sources */,
+				9D8E64F42B8E894B9119D1FE /* SettingsView.swift in Sources */,
+				C5173D20404200791D70A453 /* StoredTransaction.swift in Sources */,
+				75AA87CB75B0AA638934501E /* StoredVisit.swift in Sources */,
+				C4E30C037376A83E028BFE2E /* TodayView.swift in Sources */,
+				1A0109DE18741071699A1F05 /* TodayViewModel.swift in Sources */,
+				648146DCB8630079434A1C9C /* TransactionRepository.swift in Sources */,
+				D1A157987B70DA7038ABFF50 /* TransactionRow.swift in Sources */,
+				20D686E7CB4F55FA804E31C3 /* TransactionSyncService.swift in Sources */,
+				A091C35FF70F13D017B4CC82 /* UserFacingError.swift in Sources */,
+				5EAF591DC479EC9B5C3308F6 /* VisitRepository.swift in Sources */,
+				589C2FC9A9DAF2F302BE6D4F /* WidgetPublisher.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7DCA646DD38103BA644E7CA2 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				66DA5245C2AB3863949BE3CB /* CalendarSyncServiceTests.swift in Sources */,
+				03CF7091961A96BCDBE5F815 /* StubHTTPClient.swift in Sources */,
+				35C224C87A1D75C73064C1B4 /* TodayViewModelTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BFB4ACDA2F4231D8BD61BD7E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0A514FFF69A8179978C58F63 /* DayLedgerUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D8F106A427B054D1446179DB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EB5CE9D5F624C35E34223232 /* DayLedgerWidgetBundle.swift in Sources */,
+				4B7353D88879CAB2DDC8F02E /* SpendProvider.swift in Sources */,
+				D54265C7D1D90196A5B41B63 /* SpendWidgetViews.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		24F7E1E1180D2A79E9F015FB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 45F8080AC9953CF5AD896713 /* DayLedgerWidget */;
+			targetProxy = CD406E5D15BEFB80AA0BC1C9 /* PBXContainerItemProxy */;
+		};
+		521BF97C7F8390C895571634 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 29BFDD88DD31F65F833C1BED /* DayLedger */;
+			targetProxy = 716EBEA9687B8C4D3C2E723E /* PBXContainerItemProxy */;
+		};
+		B7A7C737AC7324FC248B04E6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 29BFDD88DD31F65F833C1BED /* DayLedger */;
+			targetProxy = 9D5B954DCCF59714C4D6CD33 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		0B054958998850923E9A1D0F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = App/DayLedger.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = App/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(DL_BUNDLE_ID)";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		3258C43F56F0B6F3378D0E2F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Widget/DayLedgerWidget.entitlements;
+				INFOPLIST_FILE = Widget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(DL_BUNDLE_ID).widget";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		519CCDC34F9DCA6E7DE7CC4D /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = B6124A622B0AC79CF289E3E4 /* Base.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = "$(DL_DEVELOPMENT_TEAM)";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		64BF3D928A6CF0EE8610033E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(DL_BUNDLE_ID).uitests";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = DayLedger;
+			};
+			name = Debug;
+		};
+		7B8F836499FC384DBDB6E0D1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(DL_BUNDLE_ID).uitests";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = DayLedger;
+			};
+			name = Release;
+		};
+		86B9100424F355F9540074A0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(DL_BUNDLE_ID).tests";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/DayLedger.app/DayLedger";
+			};
+			name = Debug;
+		};
+		A5B18620DF04269E4B31E4CB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(DL_BUNDLE_ID).tests";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/DayLedger.app/DayLedger";
+			};
+			name = Release;
+		};
+		C6408042E60E81715F04CF01 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = App/DayLedger.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = App/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(DL_BUNDLE_ID)";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		D005906E64F3F538FEBD021F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Widget/DayLedgerWidget.entitlements;
+				INFOPLIST_FILE = Widget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(DL_BUNDLE_ID).widget";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		F4DB0F475AC7D5D9D9F71FC7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = B6124A622B0AC79CF289E3E4 /* Base.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = "$(DL_DEVELOPMENT_TEAM)";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		1395F55F66A2438D4B0B3B69 /* Build configuration list for PBXNativeTarget "DayLedgerWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D005906E64F3F538FEBD021F /* Debug */,
+				3258C43F56F0B6F3378D0E2F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		9C76B5DBC556C87D808D24A1 /* Build configuration list for PBXNativeTarget "DayLedger" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C6408042E60E81715F04CF01 /* Debug */,
+				0B054958998850923E9A1D0F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		9CD002C42FA55EE89B2376D3 /* Build configuration list for PBXProject "DayLedger" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F4DB0F475AC7D5D9D9F71FC7 /* Debug */,
+				519CCDC34F9DCA6E7DE7CC4D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		B8AC971F938C22EA68821BE5 /* Build configuration list for PBXNativeTarget "DayLedgerTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				86B9100424F355F9540074A0 /* Debug */,
+				A5B18620DF04269E4B31E4CB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		F72C10960EA7AB461C047716 /* Build configuration list for PBXNativeTarget "DayLedgerUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				64BF3D928A6CF0EE8610033E /* Debug */,
+				7B8F836499FC384DBDB6E0D1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		65F0CB73815995FA4379AD60 /* XCLocalSwiftPackageReference "Packages/DayLedgerKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/DayLedgerKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		25502FEF318662A3FB589148 /* SharedModels */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = SharedModels;
+		};
+		3CFCABE4ABA01105B912BEBD /* BankKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = BankKit;
+		};
+		3E1FDB930816A552D3BB51A4 /* LocationKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = LocationKit;
+		};
+		72B7A188A553F6893287013A /* Networking */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Networking;
+		};
+		80AE5711FC0A9849811819CA /* AIKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = AIKit;
+		};
+		89D5431213A3FD3DD392339B /* SecureStore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = SecureStore;
+		};
+		B2B2323B314102EEC41B9AA0 /* SharedModels */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = SharedModels;
+		};
+		EB89FBBCA47BE68B0930B2F9 /* CalendarKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = CalendarKit;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 1C3CC8F00BFDD5EBD6AA9691 /* Project object */;
+}

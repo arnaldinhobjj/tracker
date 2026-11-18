@@ -1,0 +1,61 @@
+name: Sync Xcode project
+
+# The Xcode project is generated from project.yml with XcodeGen and committed so the
+# repository opens directly in Xcode. This job regenerates it on a macOS runner and
+# commits the result whenever it is out of date. Commits made with GITHUB_TOKEN don't
+# trigger further workflow runs, so this can't loop; instead the job dispatches
+# "iOS build & test" explicitly so the regenerated commit is still built and tested.
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "project.yml"
+      - "Config/**"
+      - "App/**"
+      - "Widget/**"
+      - "Tests/**"
+      - "Packages/DayLedgerKit/Package.swift"
+      - ".github/workflows/xcodeproj.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: xcodeproj-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  generate:
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: |
+          xcodegen --version
+          xcodegen generate
+
+      - name: Commit if changed
+        run: |
+          git add -A DayLedger.xcodeproj App/Info.plist App/DayLedger.entitlements Widget/Info.plist Widget/DayLedgerWidget.entitlements
+          if git diff --cached --quiet; then
+            echo "Xcode project is up to date."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Regenerate Xcode project from project.yml"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+          # A push made with GITHUB_TOKEN doesn't start CI, but workflow_dispatch does.
+          gh workflow run ios.yml --ref "${GITHUB_REF_NAME}"
+        env:
+          GH_TOKEN: ${{ github.token }}
