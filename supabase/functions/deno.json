@@ -1,0 +1,19 @@
+{
+  "lock": false,
+  "compilerOptions": {
+    "strict": true
+  },
+  "fmt": {
+    "lineWidth": 100,
+    "exclude": ["_shared/testdata/"]
+  },
+  "lint": {
+    "rules": {
+      "tags": ["recommended"]
+    }
+  },
+  "tasks": {
+    "check": "deno check **/*.ts",
+    "test": "deno test --allow-read --allow-env"
+  }
+}
