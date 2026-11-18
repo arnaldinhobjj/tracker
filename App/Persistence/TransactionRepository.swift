@@ -6,9 +6,12 @@ import SwiftData
 /// the data set (weeks of transactions) is small enough for that.
 @MainActor
 final class TransactionRepository {
+    // Keep the container alive: a ModelContext does not retain it.
+    private let container: ModelContainer
     private let context: ModelContext
 
     init(container: ModelContainer) {
+        self.container = container
         context = container.mainContext
     }
 

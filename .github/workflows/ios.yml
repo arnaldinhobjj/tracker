@@ -54,7 +54,7 @@ jobs:
             -destination "id=${{ steps.sim.outputs.udid }}" \
             -resultBundlePath "$RUNNER_TEMP/app-tests.xcresult" \
             CODE_SIGNING_ALLOWED=NO \
-            | tee "$RUNNER_TEMP/app-tests.log" 2>&1 | (grep -E "error:|Test Case .* (passed|failed)|Executed|\*\* " || true)
+            | tee "$RUNNER_TEMP/app-tests.log" 2>&1 | (grep -E "error:|Fatal error|crash|Restarting after|Test Case .* (passed|failed)|Executed|\*\* " || true)
 
       - name: Build for device (unsigned, Release)
         run: |

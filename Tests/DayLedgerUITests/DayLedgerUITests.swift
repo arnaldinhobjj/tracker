@@ -27,6 +27,13 @@ final class DayLedgerUITests: XCTestCase {
 
         app.tabBars.buttons["Settings"].tap()
         app.buttons["Privacy & your data"].tap()
-        XCTAssertTrue(app.buttons["deleteAllData"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["Privacy & your data"].waitForExistence(timeout: 5))
+
+        // The delete button is at the bottom of a long list; scroll until it is rendered.
+        let deleteButton = app.buttons["deleteAllData"]
+        for _ in 0..<8 where !deleteButton.exists {
+            app.swipeUp()
+        }
+        XCTAssertTrue(deleteButton.waitForExistence(timeout: 5))
     }
 }
