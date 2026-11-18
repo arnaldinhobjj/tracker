@@ -26,14 +26,14 @@ final class DayLedgerUITests: XCTestCase {
         app.launch()
 
         app.tabBars.buttons["Settings"].tap()
-        app.buttons["Privacy & your data"].tap()
+        let privacyLink = app.buttons["Privacy & your data"]
+        scroll(app, until: privacyLink)
+        privacyLink.tap()
         XCTAssertTrue(app.navigationBars["Privacy & your data"].waitForExistence(timeout: 5))
 
         // The delete button is at the bottom of a long list; scroll until it is rendered.
         let deleteButton = app.buttons["deleteAllData"]
-        for _ in 0..<8 where !deleteButton.exists {
-            app.swipeUp()
-        }
+        scroll(app, until: deleteButton)
         XCTAssertTrue(deleteButton.waitForExistence(timeout: 5))
     }
 
@@ -45,5 +45,12 @@ final class DayLedgerUITests: XCTestCase {
 
         app.tabBars.buttons["Places"].tap()
         XCTAssertTrue(app.staticTexts["Location logging is off"].waitForExistence(timeout: 5))
+    }
+
+    /// Lists render lazily, so off-screen rows don't exist until scrolled to (small simulators).
+    private func scroll(_ app: XCUIApplication, until element: XCUIElement, maxSwipes: Int = 8) {
+        for _ in 0..<maxSwipes where !(element.exists && element.isHittable) {
+            app.swipeUp()
+        }
     }
 }
