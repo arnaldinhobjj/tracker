@@ -1,0 +1,11 @@
+// Copy this file to Config/Local.xcconfig (git-ignored) and fill in your values.
+// Note: in .xcconfig files "//" starts a comment, so never paste URLs here.
+
+DL_BUNDLE_ID = com.yourname.dayledger
+DL_DEVELOPMENT_TEAM = ABCDE12345
+
+TRUELAYER_ENVIRONMENT = sandbox
+TRUELAYER_CLIENT_ID = sandbox-yourapp-123456
+TRUELAYER_CLIENT_SECRET = your-sandbox-client-secret
+
+GOOGLE_IOS_CLIENT_ID = 1234567890-abcdefg.apps.googleusercontent.com

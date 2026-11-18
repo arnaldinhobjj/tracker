@@ -1,0 +1,26 @@
+// swift-tools-version:5.9
+import PackageDescription
+
+let package = Package(
+    name: "DayLedgerKit",
+    defaultLocalization: "en",
+    platforms: [.iOS(.v17)],
+    products: [
+        .library(name: "SharedModels", targets: ["SharedModels"]),
+        .library(name: "Networking", targets: ["Networking"]),
+        .library(name: "SecureStore", targets: ["SecureStore"]),
+        .library(name: "BankKit", targets: ["BankKit"]),
+    ],
+    targets: [
+        // Pure value types shared by the app, the widget and every feature module.
+        .target(name: "SharedModels"),
+        // HTTP transport, error mapping and OAuth token types. No feature knowledge.
+        .target(name: "Networking", dependencies: ["SharedModels"]),
+        // Keychain wrapper. The only module that touches Security.framework.
+        .target(name: "SecureStore"),
+        // Open Banking (TrueLayer) client, mapping and categorisation.
+        .target(name: "BankKit", dependencies: ["SharedModels", "Networking", "SecureStore"]),
+
+        .testTarget(name: "BankKitTests", dependencies: ["BankKit", "SharedModels", "Networking", "SecureStore"]),
+    ]
+)

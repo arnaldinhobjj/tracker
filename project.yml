@@ -1,0 +1,106 @@
+name: DayLedger
+options:
+  bundleIdPrefix: com.example
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+  developmentLanguage: en-GB
+
+configFiles:
+  Debug: Config/Base.xcconfig
+  Release: Config/Base.xcconfig
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_TEAM: $(DL_DEVELOPMENT_TEAM)
+    CODE_SIGN_STYLE: Automatic
+    TARGETED_DEVICE_FAMILY: "1"
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+
+packages:
+  DayLedgerKit:
+    path: Packages/DayLedgerKit
+
+targets:
+  DayLedger:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+    dependencies:
+      - package: DayLedgerKit
+        product: SharedModels
+      - package: DayLedgerKit
+        product: Networking
+      - package: DayLedgerKit
+        product: SecureStore
+      - package: DayLedgerKit
+        product: BankKit
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: DayLedger
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        ITSAppUsesNonExemptEncryption: false
+        # Values come from Config/*.xcconfig; read by AppConfiguration.swift.
+        DLTrueLayerClientID: $(TRUELAYER_CLIENT_ID)
+        DLTrueLayerClientSecret: $(TRUELAYER_CLIENT_SECRET)
+        DLTrueLayerEnvironment: $(TRUELAYER_ENVIRONMENT)
+        DLGoogleClientID: $(GOOGLE_IOS_CLIENT_ID)
+        DLAppGroupID: $(DL_APP_GROUP_ID)
+    entitlements:
+      path: App/DayLedger.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - $(DL_APP_GROUP_ID)
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(DL_BUNDLE_ID)
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+
+  DayLedgerTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests/DayLedgerTests
+    dependencies:
+      - target: DayLedger
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(DL_BUNDLE_ID).tests
+        GENERATE_INFOPLIST_FILE: YES
+
+  DayLedgerUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: Tests/DayLedgerUITests
+    dependencies:
+      - target: DayLedger
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(DL_BUNDLE_ID).uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: DayLedger
+
+schemes:
+  DayLedger:
+    build:
+      targets:
+        DayLedger: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - DayLedgerTests
+        - DayLedgerUITests

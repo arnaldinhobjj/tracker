@@ -1,0 +1,15 @@
+# Xcode
+DerivedData/
+build/
+*.xcresult
+xcuserdata/
+*.xcuserstate
+.swiftpm/
+.build/
+Packages/DayLedgerKit/.build/
+Packages/DayLedgerKit/.swiftpm/
+
+# Local secrets / config — never commit
+Config/Local.xcconfig
+
+.DS_Store
