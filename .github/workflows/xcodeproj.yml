@@ -3,7 +3,8 @@ name: Sync Xcode project
 # The Xcode project is generated from project.yml with XcodeGen and committed so the
 # repository opens directly in Xcode. This job regenerates it on a macOS runner and
 # commits the result whenever it is out of date. Commits made with GITHUB_TOKEN don't
-# trigger further workflow runs, so this can't loop.
+# trigger further workflow runs, so this can't loop; instead the job dispatches
+# "iOS build & test" explicitly so the regenerated commit is still built and tested.
 
 on:
   push:
@@ -24,6 +25,7 @@ concurrency:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   generate:
@@ -53,3 +55,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "Regenerate Xcode project from project.yml"
           git push origin "HEAD:${GITHUB_REF_NAME}"
+          # A push made with GITHUB_TOKEN doesn't start CI, but workflow_dispatch does.
+          gh workflow run ios.yml --ref "${GITHUB_REF_NAME}"
+        env:
+          GH_TOKEN: ${{ github.token }}
