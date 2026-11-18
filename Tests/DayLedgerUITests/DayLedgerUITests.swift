@@ -47,6 +47,16 @@ final class DayLedgerUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Location logging is off"].waitForExistence(timeout: 5))
     }
 
+    @MainActor
+    func testSuggestTabIsOptInByDefault() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-UITestMockData"]
+        app.launch()
+
+        app.tabBars.buttons["Suggest"].tap()
+        XCTAssertTrue(app.staticTexts["AI assistant is off"].waitForExistence(timeout: 5))
+    }
+
     /// Lists render lazily, so off-screen rows don't exist until scrolled to (small simulators).
     private func scroll(_ app: XCUIApplication, until element: XCUIElement, maxSwipes: Int = 8) {
         for _ in 0..<maxSwipes where !(element.exists && element.isHittable) {

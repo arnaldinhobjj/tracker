@@ -1,3 +1,4 @@
+import AIKit
 import CalendarKit
 import Foundation
 import Observation
@@ -87,6 +88,36 @@ final class CalendarSyncService {
             // Whatever wasn't written keeps its old hash and is retried on the next sync.
             self.error = UserFacingError(error)
         }
+    }
+
+    /// Busy times on the primary calendar (no titles or details). Empty if not signed in.
+    func busyIntervals(from start: Date, to end: Date) async -> [DateInterval] {
+        guard auth.isSignedIn else { return [] }
+        return (try? await client.busyIntervals(from: start, to: end)) ?? []
+    }
+
+    /// Writes user-approved AI suggestions to the DayLedger calendar. Event IDs come from the
+    /// proposal, so approving the same suggestion twice doesn't create two events.
+    func createEvents(for proposals: [EventProposal], timeZone: TimeZone = .current) async throws -> Int {
+        guard auth.isSignedIn else { throw CalendarError.notSignedIn }
+        let calendarID = try await client.ensureDayLedgerCalendar(knownID: self.calendarID)
+        self.calendarID = calendarID
+        var created = 0
+        for proposal in proposals {
+            let draft = CalendarEventDraft(
+                id: CalendarEventID.forSuggestion(key: proposal.id),
+                summary: proposal.title,
+                description: [proposal.reason, "", "Suggested by DayLedger's AI assistant and approved by you."].joined(separator: "\n"),
+                start: proposal.start,
+                end: proposal.end,
+                timeZone: timeZone,
+                privateProperties: ["dayledgerKind": "suggestion"],
+                showsAsBusy: true
+            )
+            try await client.upsert(draft, calendarID: calendarID)
+            created += 1
+        }
+        return created
     }
 
     /// Deletes the DayLedger calendar from Google (used by "Delete all my data").

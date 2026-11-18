@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     let environment: AppEnvironment
     @Bindable var bankModel: BankConnectionViewModel
+    let assistant: AssistantViewModel
     var onDataErased: () -> Void
 
     var body: some View {
@@ -13,6 +14,8 @@ struct SettingsView: View {
                 LocationSettingsSection(environment: environment, settings: environment.settings)
 
                 CalendarSettingsSection(environment: environment, settings: environment.settings, sync: environment.calendarSync)
+
+                AISettingsSection(environment: environment, settings: environment.settings, assistant: assistant)
 
                 Section("Privacy") {
                     NavigationLink {

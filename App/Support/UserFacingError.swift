@@ -1,3 +1,4 @@
+import AIKit
 import BankKit
 import CalendarKit
 import Foundation
@@ -32,6 +33,8 @@ struct UserFacingError: Equatable, Identifiable {
             self = Self.network(error)
         case let error as CalendarError:
             self = Self.calendar(error)
+        case let error as AIError:
+            self = Self.ai(error)
         default:
             self = UserFacingError(title: "Something went wrong", message: error.localizedDescription, action: .retry)
         }
@@ -51,6 +54,31 @@ struct UserFacingError: Equatable, Identifiable {
             return UserFacingError(title: "Server error", message: "The server returned an error (\(status)). Try again later.", action: .retry)
         case .invalidResponse, .decoding, .transport:
             return UserFacingError(title: "Unexpected response", message: "Something went wrong talking to the server. Try again later.", action: .retry)
+        }
+    }
+
+    static func ai(_ error: AIError) -> UserFacingError {
+        switch error {
+        case .missingAPIKey:
+            return UserFacingError(title: "No API key", message: "Add your API key in Settings → AI assistant.")
+        case .invalidAPIKey:
+            return UserFacingError(title: "API key rejected", message: "The provider didn't accept your API key. Check it in Settings → AI assistant.")
+        case .rateLimited:
+            return UserFacingError(title: "Rate limited", message: "Your API key has hit its rate limit. Try again in a minute.", action: .retry)
+        case .overloaded:
+            return UserFacingError(title: "AI service busy", message: "The provider is overloaded. Try again shortly.", action: .retry)
+        case .refused:
+            return UserFacingError(title: "No suggestions", message: "The AI declined this request. Nothing was changed.", action: .retry)
+        case .truncated:
+            return UserFacingError(title: "Response cut off", message: "The AI's answer was incomplete. Try again.", action: .retry)
+        case .invalidResponse(let detail):
+            return UserFacingError(title: "Couldn't read suggestions", message: detail, action: .retry)
+        case .providerError(let status, let message):
+            return UserFacingError(title: "AI provider error (\(status))", message: message, action: .retry)
+        case .offline:
+            return network(.offline)
+        case .network(let detail):
+            return UserFacingError(title: "Network error", message: detail, action: .retry)
         }
     }
 

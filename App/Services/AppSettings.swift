@@ -22,7 +22,13 @@ final class AppSettings {
         didSet { defaults.set(minimumVisitMinutes, forKey: Keys.minimumMinutes) }
     }
 
+    /// Opt-in AI assistant. Off until the user connects a provider.
+    var aiAssistantEnabled: Bool {
+        didSet { defaults.set(aiAssistantEnabled, forKey: Keys.ai) }
+    }
+
     private enum Keys {
+        static let ai = "settings.aiAssistant"
         static let location = "settings.locationLogging"
         static let calendar = "settings.calendarWriting"
         static let namedOnly = "settings.onlyNamedPlaces"
@@ -36,6 +42,7 @@ final class AppSettings {
         calendarWritingEnabled = defaults.object(forKey: Keys.calendar) as? Bool ?? false
         onlyNamedPlaces = defaults.object(forKey: Keys.namedOnly) as? Bool ?? true
         minimumVisitMinutes = defaults.object(forKey: Keys.minimumMinutes) as? Int ?? 5
+        aiAssistantEnabled = defaults.object(forKey: Keys.ai) as? Bool ?? false
     }
 
     func resetToDefaults() {
@@ -43,5 +50,6 @@ final class AppSettings {
         calendarWritingEnabled = false
         onlyNamedPlaces = true
         minimumVisitMinutes = 5
+        aiAssistantEnabled = false
     }
 }

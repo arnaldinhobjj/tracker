@@ -1,3 +1,4 @@
+import AIKit
 import BankKit
 import CalendarKit
 import Foundation
@@ -24,6 +25,8 @@ final class AppEnvironment {
     let googleAuth: GoogleAuthService
     let calendarSync: CalendarSyncService
     let locationLogging: LocationLoggingService
+    /// Providers the user can choose from. Anthropic first; add others behind `AIProvider`.
+    let aiProviders: [AIProvider]
     /// True when launched by UI tests: in-memory store, mock bank, no Keychain.
     let isUITesting: Bool
 
@@ -65,6 +68,12 @@ final class AppEnvironment {
             resolver: MapKitPlaceResolver(),
             settings: settings
         )
+
+        aiProviders = [
+            AnthropicProvider(apiKey: { [secureStore] in
+                try secureStore.string(for: SecureStoreKey.aiAPIKey(provider: "anthropic"))
+            }),
+        ]
 
         // New transactions can complete a visit's spending, so re-sync the calendar after each bank sync.
         transactionSync.onSynced = { [widgetPublisher, calendarSync] in

@@ -12,6 +12,7 @@ let package = Package(
         .library(name: "BankKit", targets: ["BankKit"]),
         .library(name: "CalendarKit", targets: ["CalendarKit"]),
         .library(name: "LocationKit", targets: ["LocationKit"]),
+        .library(name: "AIKit", targets: ["AIKit"]),
     ],
     targets: [
         // Pure value types shared by the app, the widget and every feature module.
@@ -28,6 +29,10 @@ let package = Package(
         // CoreLocation visit monitoring and MapKit place lookup.
         .target(name: "LocationKit", dependencies: ["SharedModels"]),
 
+        // Opt-in AI scheduling assistant: provider protocol, anonymised summary, proposal parsing.
+        .target(name: "AIKit", dependencies: ["SharedModels", "Networking"]),
+
+        .testTarget(name: "AIKitTests", dependencies: ["AIKit", "SharedModels", "Networking"]),
         .testTarget(name: "CalendarKitTests", dependencies: ["CalendarKit", "SharedModels", "Networking", "SecureStore"]),
         .testTarget(name: "SharedModelsTests", dependencies: ["SharedModels"]),
         .testTarget(name: "BankKitTests", dependencies: ["BankKit", "SharedModels", "Networking", "SecureStore"]),

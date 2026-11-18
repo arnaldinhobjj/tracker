@@ -43,6 +43,8 @@ targets:
         product: CalendarKit
       - package: DayLedgerKit
         product: LocationKit
+      - package: DayLedgerKit
+        product: AIKit
       - target: DayLedgerWidget
     info:
       path: App/Info.plist

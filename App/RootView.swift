@@ -2,11 +2,12 @@ import AuthenticationServices
 import SwiftUI
 
 struct RootView: View {
-    enum Tab: Hashable { case today, places, settings }
+    enum Tab: Hashable { case today, places, suggestions, settings }
 
     let environment: AppEnvironment
     @State private var today: TodayViewModel
     @State private var bankModel: BankConnectionViewModel
+    @State private var assistant: AssistantViewModel
     @State private var selectedTab = Tab.today
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.webAuthenticationSession) private var webAuthenticationSession
@@ -19,6 +20,7 @@ struct RootView: View {
             sync: environment.transactionSync
         ))
         _bankModel = State(initialValue: BankConnectionViewModel(bank: environment.bankService, sync: environment.transactionSync))
+        _assistant = State(initialValue: AssistantViewModel(environment: environment))
     }
 
     var body: some View {
@@ -31,7 +33,11 @@ struct RootView: View {
                 .tabItem { Label("Places", systemImage: "mappin.and.ellipse") }
                 .tag(Tab.places)
 
-            SettingsView(environment: environment, bankModel: bankModel, onDataErased: dataErased)
+            AssistantView(environment: environment, model: assistant)
+                .tabItem { Label("Suggest", systemImage: "sparkles") }
+                .tag(Tab.suggestions)
+
+            SettingsView(environment: environment, bankModel: bankModel, assistant: assistant, onDataErased: dataErased)
                 .tabItem { Label("Settings", systemImage: "gearshape") }
                 .tag(Tab.settings)
         }
