@@ -27,6 +27,14 @@ jobs:
       - name: Generate Xcode project
         run: xcodegen generate
 
+      - name: Check committed Xcode project is up to date
+        run: |
+          # The project is committed; regenerating must not change it. If this fails,
+          # run `xcodegen generate` and commit (the Sync Xcode project workflow does this).
+          git status --porcelain -- DayLedger.xcodeproj App/Info.plist App/DayLedger.entitlements Widget/Info.plist Widget/DayLedgerWidget.entitlements
+          git diff --exit-code -- DayLedger.xcodeproj App/Info.plist App/DayLedger.entitlements Widget/Info.plist Widget/DayLedgerWidget.entitlements
+          test -z "$(git status --porcelain --untracked-files=all -- DayLedger.xcodeproj)"
+
       - name: Pick simulator
         id: sim
         run: |
