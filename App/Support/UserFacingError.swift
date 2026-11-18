@@ -29,7 +29,7 @@ struct UserFacingError: Equatable, Identifiable {
         case let error as NetworkError:
             self = Self.network(error)
         default:
-            self.init(title: "Something went wrong", message: error.localizedDescription, action: .retry)
+            self = UserFacingError(title: "Something went wrong", message: error.localizedDescription, action: .retry)
         }
     }
 

@@ -10,7 +10,7 @@ struct TransactionRow: View {
                 .font(.body.weight(.medium))
                 .foregroundStyle(.tint)
                 .frame(width: 36, height: 36)
-                .background(.tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 2) {
