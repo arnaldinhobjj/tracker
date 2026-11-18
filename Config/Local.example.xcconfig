@@ -1,5 +1,6 @@
 // Copy this file to Config/Local.xcconfig (git-ignored) and fill in your values.
-// Note: in .xcconfig files "//" starts a comment, so never paste URLs here.
+// Note: in .xcconfig files "//" starts a comment, so write URLs as https:/$()/example.com
+// ($() expands to nothing and stops "//" from being read as a comment).
 
 DL_BUNDLE_ID = com.yourname.dayledger
 DL_DEVELOPMENT_TEAM = ABCDE12345
@@ -9,3 +10,11 @@ TRUELAYER_CLIENT_ID = sandbox-yourapp-123456
 TRUELAYER_CLIENT_SECRET = your-sandbox-client-secret
 
 GOOGLE_IOS_CLIENT_ID = 1234567890-abcdefg.apps.googleusercontent.com
+
+// DayLedger account backend: Supabase dashboard -> Project Settings -> API.
+SUPABASE_URL = https:/$()/your-project-ref.supabase.co
+SUPABASE_ANON_KEY = your-anon-public-key
+
+// Shown on the paywall.
+DL_TERMS_URL = https:/$()/www.apple.com/legal/internet-services/itunes/dev/stdeula/
+DL_PRIVACY_URL = https:/$()/example.com/dayledger/privacy

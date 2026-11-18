@@ -1,3 +1,4 @@
+import AccountKit
 import Foundation
 import Observation
 
@@ -8,23 +9,38 @@ final class AppSettings {
     @ObservationIgnored private let defaults: UserDefaults
 
     var locationLoggingEnabled: Bool {
-        didSet { defaults.set(locationLoggingEnabled, forKey: Keys.location) }
+        didSet {
+            defaults.set(locationLoggingEnabled, forKey: Keys.location)
+            touch()
+        }
     }
     var calendarWritingEnabled: Bool {
-        didSet { defaults.set(calendarWritingEnabled, forKey: Keys.calendar) }
+        didSet {
+            defaults.set(calendarWritingEnabled, forKey: Keys.calendar)
+            touch()
+        }
     }
     /// Only log businesses and landmarks, not street addresses (keeps home and friends' houses out).
     var onlyNamedPlaces: Bool {
-        didSet { defaults.set(onlyNamedPlaces, forKey: Keys.namedOnly) }
+        didSet {
+            defaults.set(onlyNamedPlaces, forKey: Keys.namedOnly)
+            touch()
+        }
     }
     /// Shorter stays aren't written to the calendar.
     var minimumVisitMinutes: Int {
-        didSet { defaults.set(minimumVisitMinutes, forKey: Keys.minimumMinutes) }
+        didSet {
+            defaults.set(minimumVisitMinutes, forKey: Keys.minimumMinutes)
+            touch()
+        }
     }
 
     /// Opt-in AI assistant. Off until the user connects a provider.
     var aiAssistantEnabled: Bool {
-        didSet { defaults.set(aiAssistantEnabled, forKey: Keys.ai) }
+        didSet {
+            defaults.set(aiAssistantEnabled, forKey: Keys.ai)
+            touch()
+        }
     }
 
     private enum Keys {
@@ -33,6 +49,37 @@ final class AppSettings {
         static let calendar = "settings.calendarWriting"
         static let namedOnly = "settings.onlyNamedPlaces"
         static let minimumMinutes = "settings.minimumVisitMinutes"
+        static let changedAt = "settings.changedAt"
+    }
+
+    /// True while settings pulled from the cloud are applied, so they don't count as local edits.
+    @ObservationIgnored private var isApplyingRemote = false
+
+    /// When the user last changed a setting on this device (for cloud sync, last write wins).
+    var changedAt: Date? {
+        defaults.object(forKey: Keys.changedAt) as? Date
+    }
+
+    private func touch() {
+        guard !isApplyingRemote else { return }
+        defaults.set(Date(), forKey: Keys.changedAt)
+    }
+
+    /// The settings as stored in `user_settings.settings`.
+    var synced: SyncedSettings {
+        SyncedSettings(locationLogging: locationLoggingEnabled, calendarWriting: calendarWritingEnabled,
+                       onlyNamedPlaces: onlyNamedPlaces, minimumVisitMinutes: minimumVisitMinutes, aiAssistant: aiAssistantEnabled)
+    }
+
+    /// Applies settings from another device. Location logging is deliberately not applied: it
+    /// needs this iPhone's own permission and consent, so it is only ever turned on here.
+    func applyRemote(_ remote: SyncedSettings) {
+        isApplyingRemote = true
+        defer { isApplyingRemote = false }
+        if calendarWritingEnabled != remote.calendarWriting { calendarWritingEnabled = remote.calendarWriting }
+        if onlyNamedPlaces != remote.onlyNamedPlaces { onlyNamedPlaces = remote.onlyNamedPlaces }
+        if minimumVisitMinutes != remote.minimumVisitMinutes { minimumVisitMinutes = max(1, remote.minimumVisitMinutes) }
+        if aiAssistantEnabled != remote.aiAssistant { aiAssistantEnabled = remote.aiAssistant }
     }
 
     init(defaults: UserDefaults) {
