@@ -110,7 +110,7 @@ final class VisitRepository {
 
     /// Applies pulled rows (last write wins by server time). Returns true if anything changed.
     @discardableResult
-    func applyRemote(_ rows: [VisitRow], now: Date = Date()) throws -> Bool {
+    func applyRemote(_ rows: [VisitSyncRow], now: Date = Date()) throws -> Bool {
         guard !rows.isEmpty else { return false }
         let ids = rows.map(\.id)
         let existing = try context.fetch(FetchDescriptor<StoredVisit>(predicate: #Predicate { ids.contains($0.id) }))

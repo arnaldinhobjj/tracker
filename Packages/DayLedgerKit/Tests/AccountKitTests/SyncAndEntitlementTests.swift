@@ -60,7 +60,7 @@ final class SyncRowTests: XCTestCase {
     }
 
     func testTransactionRowUsesContractColumns() throws {
-        let row = TransactionRow(userID: userID, id: "acc:tx1", accountID: "acc", merchant: "Costa", rawDescription: "COSTA",
+        let row = TransactionSyncRow(userID: userID, id: "acc:tx1", accountID: "acc", merchant: "Costa", rawDescription: "COSTA",
                                  amountMinor: 340, currency: "GBP", direction: "debit", bankCategory: "PURCHASE", category: "coffee",
                                  occurredAt: Date(timeIntervalSince1970: 0), hasTime: true, isPending: false)
         let json = try keys(row)
@@ -74,7 +74,7 @@ final class SyncRowTests: XCTestCase {
     }
 
     func testVisitRowUsesContractColumns() throws {
-        let row = VisitRow(userID: userID, id: "v1", arrival: Date(timeIntervalSince1970: 0), departure: nil, latitude: 51.5, longitude: -0.1,
+        let row = VisitSyncRow(userID: userID, id: "v1", arrival: Date(timeIntervalSince1970: 0), departure: nil, latitude: 51.5, longitude: -0.1,
                            placeName: "Costa", placeCategory: nil, isNamedPlace: true, isResolved: true,
                            calendarEventID: nil, calendarContentHash: nil, calendarSyncedAt: nil)
         let json = try keys(row)
@@ -85,7 +85,7 @@ final class SyncRowTests: XCTestCase {
 
     func testSettingsRowAndDecodingServerRows() throws {
         let settings = SyncedSettings(locationLogging: true, calendarWriting: false, onlyNamedPlaces: true, minimumVisitMinutes: 10, aiAssistant: false)
-        let json = try keys(UserSettingsRow(userID: userID, settings: settings))
+        let json = try keys(UserSettingsSyncRow(userID: userID, settings: settings))
         XCTAssertEqual(Set(json.keys), ["user_id", "settings"])
         let inner = try XCTUnwrap(json["settings"] as? [String: Any])
         XCTAssertEqual(Set(inner.keys), ["locationLogging", "calendarWriting", "onlyNamedPlaces", "minimumVisitMinutes", "aiAssistant"])
@@ -96,7 +96,7 @@ final class SyncRowTests: XCTestCase {
          "occurred_at":"2026-11-18T08:30:00+00:00","has_time":true,"is_pending":false,
          "updated_at":"2026-11-18T09:00:00.123456+00:00","deleted_at":"2026-11-18T09:00:00.123456+00:00"}
         """#
-        let row = try JSONDecoder().decode(TransactionRow.self, from: Data(server.utf8))
+        let row = try JSONDecoder().decode(TransactionSyncRow.self, from: Data(server.utf8))
         XCTAssertEqual(row.userID, userID)
         XCTAssertEqual(row.updatedAt, "2026-11-18T09:00:00.123456+00:00", "Cursor text is kept exactly")
         XCTAssertNotNil(row.deletedAt)
@@ -122,7 +122,7 @@ final class SupabaseRESTClientTests: XCTestCase {
         http.on("/rest/v1/visits", body: "[]") // Must never be requested.
         let client = makeClient(http: http)
 
-        let result = try await client.fetchChanges(VisitRow.self, from: "visits", after: nil, pageSize: 2)
+        let result = try await client.fetchChanges(VisitSyncRow.self, from: "visits", after: nil, pageSize: 2)
 
         XCTAssertEqual(result.rows.map(\.id), ["a", "b", "c"])
         XCTAssertEqual(result.cursor, SyncCursor(updatedAt: "2026-11-18T09:05:00+00:00", id: "c"))
@@ -142,7 +142,7 @@ final class SupabaseRESTClientTests: XCTestCase {
         http.on("/rest/v1/transactions", status: 201, body: "")
         http.on("/rest/v1/transactions", status: 201, body: "")
         let rows = (0..<501).map { index in
-            TransactionRow(userID: userID, id: "a:\(index)", accountID: "a", merchant: "M", rawDescription: "M", amountMinor: 100,
+            TransactionSyncRow(userID: userID, id: "a:\(index)", accountID: "a", merchant: "M", rawDescription: "M", amountMinor: 100,
                            currency: "GBP", direction: "debit", bankCategory: "", category: "other", occurredAt: Date(), hasTime: false, isPending: false)
         }
 

@@ -9,7 +9,7 @@ public protocol SyncRow: Codable, Sendable {
 }
 
 /// `public.transactions` (contract: docs/backend-contract.md). Columns are snake_case on the wire.
-public struct TransactionRow: SyncRow, Equatable {
+public struct TransactionSyncRow: SyncRow, Equatable {
     public var userID: UUID
     public var id: String
     public var accountID: String
@@ -110,7 +110,7 @@ public struct TransactionRow: SyncRow, Equatable {
 }
 
 /// `public.visits`.
-public struct VisitRow: SyncRow, Equatable {
+public struct VisitSyncRow: SyncRow, Equatable {
     public var userID: UUID
     public var id: String
     public var arrival: Date
@@ -238,7 +238,7 @@ public struct SyncedSettings: Codable, Equatable, Sendable {
 }
 
 /// `public.user_settings` (primary key `user_id`, one row per user).
-public struct UserSettingsRow: SyncRow, Equatable {
+public struct UserSettingsSyncRow: SyncRow, Equatable {
     public var userID: UUID
     public var settings: SyncedSettings
     public var updatedAt: String?

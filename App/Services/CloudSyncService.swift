@@ -143,7 +143,7 @@ final class CloudSyncService {
     // MARK: Transactions
 
     private func pullTransactions(userID: UUID, rest: SupabaseRESTClient, now: Date) async throws -> Bool {
-        let result = try await rest.fetchChanges(TransactionRow.self, from: Self.transactionsTable, after: cursor(Self.transactionsTable, userID))
+        let result = try await rest.fetchChanges(TransactionSyncRow.self, from: Self.transactionsTable, after: cursor(Self.transactionsTable, userID))
         let changed = try transactions.applyRemote(result.rows, now: now)
         saveCursor(result.cursor, table: Self.transactionsTable, userID: userID)
         return changed
@@ -156,7 +156,7 @@ final class CloudSyncService {
         guard !tombstones.isEmpty else { return }
         // Skip any id that is back locally (a pending item re-fetched unchanged).
         let stillPresent = transactions.existingIDs(in: tombstones.map(\.id))
-        let deletes = tombstones.filter { !stillPresent.contains($0.id) }.map { row -> TransactionRow in
+        let deletes = tombstones.filter { !stillPresent.contains($0.id) }.map { row -> TransactionSyncRow in
             var row = row
             row.userID = userID
             return row
@@ -175,7 +175,7 @@ final class CloudSyncService {
         let startedAt = Date()
         let dirty = transactions.cloudDirty()
         guard !dirty.isEmpty else { return }
-        let rows = dirty.map { TransactionRow(stored: $0.domain, userID: userID) }
+        let rows = dirty.map { TransactionSyncRow(stored: $0.domain, userID: userID) }
         try await rest.upsert(rows, into: Self.transactionsTable, onConflict: "user_id,id")
         transactions.markCloudSynced(ids: Set(rows.map(\.id)), at: startedAt)
     }
@@ -185,16 +185,16 @@ final class CloudSyncService {
         let deletedAt = Date()
         var rows = pendingTombstones()
         let placeholder = UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
-        rows.append(contentsOf: removed.map { TransactionRow(stored: $0, userID: placeholder, deletedAt: deletedAt) })
+        rows.append(contentsOf: removed.map { TransactionSyncRow(stored: $0, userID: placeholder, deletedAt: deletedAt) })
         if rows.count > Self.maxTombstones { rows.removeFirst(rows.count - Self.maxTombstones) }
         if let data = try? JSONEncoder().encode(rows) {
             defaults.set(data, forKey: Self.tombstonesKey)
         }
     }
 
-    private func pendingTombstones() -> [TransactionRow] {
+    private func pendingTombstones() -> [TransactionSyncRow] {
         guard let data = defaults.data(forKey: Self.tombstonesKey) else { return [] }
-        return (try? JSONDecoder().decode([TransactionRow].self, from: data)) ?? []
+        return (try? JSONDecoder().decode([TransactionSyncRow].self, from: data)) ?? []
     }
 
     private func clearTombstones(_ ids: Set<String>) {
@@ -210,7 +210,7 @@ final class CloudSyncService {
     // MARK: Visits
 
     private func pullVisits(userID: UUID, rest: SupabaseRESTClient, now: Date) async throws -> Bool {
-        let result = try await rest.fetchChanges(VisitRow.self, from: Self.visitsTable, after: cursor(Self.visitsTable, userID))
+        let result = try await rest.fetchChanges(VisitSyncRow.self, from: Self.visitsTable, after: cursor(Self.visitsTable, userID))
         let changed = try visits.applyRemote(result.rows, now: now)
         saveCursor(result.cursor, table: Self.visitsTable, userID: userID)
         return changed
@@ -220,7 +220,7 @@ final class CloudSyncService {
         let startedAt = Date()
         let dirty = visits.cloudDirty()
         guard !dirty.isEmpty else { return }
-        let rows = dirty.map { VisitRow(stored: $0, userID: userID) }
+        let rows = dirty.map { VisitSyncRow(stored: $0, userID: userID) }
         try await rest.upsert(rows, into: Self.visitsTable, onConflict: "user_id,id")
         visits.markCloudSynced(ids: Set(rows.map(\.id)), at: startedAt)
     }
@@ -230,7 +230,7 @@ final class CloudSyncService {
     private func settingsPushedKey(_ userID: UUID) -> String { "cloud.settingsPushedAt.\(userID.uuidString)" }
 
     private func syncSettings(userID: UUID, rest: SupabaseRESTClient, canWrite: Bool, now: Date) async throws -> Bool {
-        let remote = try await rest.fetchPage(UserSettingsRow.self, from: Self.settingsTable, after: nil, hasIDColumn: false, limit: 1).first
+        let remote = try await rest.fetchPage(UserSettingsSyncRow.self, from: Self.settingsTable, after: nil, hasIDColumn: false, limit: 1).first
         let local = settings.synced
         let action = CloudMerge.settingsAction(
             localChangedAt: settings.changedAt,
@@ -247,7 +247,7 @@ final class CloudSyncService {
             return true
         case .push:
             guard canWrite else { return false }
-            try await rest.upsert([UserSettingsRow(userID: userID, settings: local)], into: Self.settingsTable, onConflict: "user_id")
+            try await rest.upsert([UserSettingsSyncRow(userID: userID, settings: local)], into: Self.settingsTable, onConflict: "user_id")
             defaults.set(now, forKey: settingsPushedKey(userID))
             return false
         case .none:
@@ -272,7 +272,7 @@ final class CloudSyncService {
 
 // MARK: - Row mapping
 
-extension TransactionRow {
+extension TransactionSyncRow {
     init(stored transaction: BankTransaction, userID: UUID, deletedAt: Date? = nil) {
         self.init(userID: userID, id: transaction.id, accountID: transaction.accountID, merchant: transaction.merchant,
                   rawDescription: transaction.rawDescription, amountMinor: transaction.amountMinor, currency: transaction.currency,
@@ -287,7 +287,7 @@ extension TransactionRow {
     }
 }
 
-extension VisitRow {
+extension VisitSyncRow {
     init(stored visit: StoredVisit, userID: UUID) {
         self.init(userID: userID, id: visit.id, arrival: visit.arrival, departure: visit.departure, latitude: visit.latitude,
                   longitude: visit.longitude, placeName: visit.placeName, placeCategory: visit.placeCategory,

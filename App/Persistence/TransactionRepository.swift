@@ -105,7 +105,7 @@ final class TransactionRepository {
     /// Applies pulled rows (last write wins by server time; soft-deleted rows are removed).
     /// Returns true if anything changed.
     @discardableResult
-    func applyRemote(_ rows: [TransactionRow], now: Date = Date()) throws -> Bool {
+    func applyRemote(_ rows: [TransactionSyncRow], now: Date = Date()) throws -> Bool {
         guard !rows.isEmpty else { return false }
         let ids = rows.map(\.id)
         let existing = try context.fetch(FetchDescriptor<StoredTransaction>(predicate: #Predicate { ids.contains($0.id) }))
