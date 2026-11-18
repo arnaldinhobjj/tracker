@@ -21,6 +21,7 @@ let package = Package(
         // Open Banking (TrueLayer) client, mapping and categorisation.
         .target(name: "BankKit", dependencies: ["SharedModels", "Networking", "SecureStore"]),
 
+        .testTarget(name: "SharedModelsTests", dependencies: ["SharedModels"]),
         .testTarget(name: "BankKitTests", dependencies: ["BankKit", "SharedModels", "Networking", "SecureStore"]),
     ]
 )

@@ -39,6 +39,7 @@ targets:
         product: SecureStore
       - package: DayLedgerKit
         product: BankKit
+      - target: DayLedgerWidget
     info:
       path: App/Info.plist
       properties:
@@ -50,6 +51,11 @@ targets:
           UIApplicationSupportsMultipleScenes: false
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         ITSAppUsesNonExemptEncryption: false
+        UIBackgroundModes: [fetch]
+        BGTaskSchedulerPermittedIdentifiers: [app.dayledger.refresh]
+        CFBundleURLTypes:
+          - CFBundleURLName: app.dayledger
+            CFBundleURLSchemes: [dayledger]
         # Values come from Config/*.xcconfig; read by AppConfiguration.swift.
         DLTrueLayerClientID: $(TRUELAYER_CLIENT_ID)
         DLTrueLayerClientSecret: $(TRUELAYER_CLIENT_SECRET)
@@ -66,6 +72,36 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: $(DL_BUNDLE_ID)
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+
+  DayLedgerWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Widget
+    dependencies:
+      - package: DayLedgerKit
+        product: SharedModels
+      - sdk: WidgetKit.framework
+      - sdk: SwiftUI.framework
+    info:
+      path: Widget/Info.plist
+      properties:
+        CFBundleDisplayName: DayLedger
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+        DLAppGroupID: $(DL_APP_GROUP_ID)
+    entitlements:
+      path: Widget/DayLedgerWidget.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - $(DL_APP_GROUP_ID)
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(DL_BUNDLE_ID).widget
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        SKIP_INSTALL: YES
 
   DayLedgerTests:
     type: bundle.unit-test

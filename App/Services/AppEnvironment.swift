@@ -2,6 +2,7 @@ import BankKit
 import Foundation
 import Observation
 import SecureStore
+import SharedModels
 import SwiftData
 
 /// Dependency container built once at launch. Views receive what they need from here.
@@ -15,6 +16,7 @@ final class AppEnvironment {
     let bankService: BankService
     let transactionRepository: TransactionRepository
     let transactionSync: TransactionSyncService
+    let widgetPublisher: WidgetPublisher
     /// True when launched by UI tests: in-memory store, mock bank, no Keychain.
     let isUITesting: Bool
 
@@ -34,6 +36,20 @@ final class AppEnvironment {
         self.isUITesting = isUITesting
         transactionRepository = TransactionRepository(container: modelContainer)
         transactionSync = TransactionSyncService(bank: bankService, repository: transactionRepository, defaults: defaults)
+        widgetPublisher = WidgetPublisher(
+            store: isUITesting ? nil : WidgetSnapshotStore(appGroupID: configuration.appGroupID),
+            repository: transactionRepository,
+            bank: bankService
+        )
+        // Every successful sync refreshes the widget if the numbers changed.
+        transactionSync.onSynced = { [widgetPublisher] in widgetPublisher.publish() }
+    }
+
+    /// Entry point for BGAppRefreshTask: fetch, store, update the widget, schedule the next one.
+    func performBackgroundRefresh() async {
+        BackgroundRefresh.schedule()
+        _ = await transactionSync.sync()
+        widgetPublisher.publish()
     }
 
     static func makeDefault(processInfo: ProcessInfo = .processInfo) -> AppEnvironment {

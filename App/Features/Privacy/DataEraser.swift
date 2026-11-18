@@ -30,7 +30,10 @@ struct DataEraser {
             report.failures.append("Keychain: \(error.localizedDescription)")
         }
 
-        // 4. Preferences and sync bookkeeping.
+        // 4. The widget's copy of today's spending.
+        environment.widgetPublisher.clear()
+
+        // 5. Preferences and sync bookkeeping.
         environment.transactionSync.reset()
         for key in environment.defaults.dictionaryRepresentation().keys {
             environment.defaults.removeObject(forKey: key)

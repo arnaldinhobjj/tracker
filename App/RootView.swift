@@ -38,6 +38,7 @@ struct RootView: View {
         }
         .onChange(of: bankModel.connections) { _, _ in
             today.reloadFromCache()
+            environment.widgetPublisher.publish()
         }
         .alert(item: $bankModel.error) { error in
             Alert(title: Text(error.title), message: Text(error.message))
