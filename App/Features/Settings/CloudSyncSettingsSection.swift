@@ -33,7 +33,7 @@ struct CloudSyncSettingsSection: View {
                 EmptyView()
             }
 
-            Toggle("Sync visits", isOn: Binding(get: { settings.visitSyncEnabled }, set: setVisitSync))
+            Toggle("Sync visits", isOn: Binding(get: { settings.visitSyncEnabled }, set: { setVisitSync($0) }))
                 .disabled(isWorking)
                 .accessibilityIdentifier("visitSyncToggle")
 
