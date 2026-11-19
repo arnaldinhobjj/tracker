@@ -1,4 +1,5 @@
 import AccountKit
+import CalendarKit
 import Foundation
 import Observation
 
@@ -43,6 +44,12 @@ final class AppSettings {
         }
     }
 
+    /// Which calendar visits and suggestions are written to. Kept on this device only (not synced):
+    /// it depends on this iPhone's calendar permission or Google sign-in.
+    var calendarDestination: CalendarDestinationKind {
+        didSet { defaults.set(calendarDestination.rawValue, forKey: Keys.calendarDestination) }
+    }
+
     /// Upload visits (end-to-end encrypted) to the DayLedger account. Account-wide (synced like
     /// the settings above), and off until the user turns it on: visits are where you've been.
     var visitSyncEnabled: Bool {
@@ -54,6 +61,7 @@ final class AppSettings {
 
     private enum Keys {
         static let visitSync = "settings.visitSync"
+        static let calendarDestination = "settings.calendarDestination"
         static let ai = "settings.aiAssistant"
         static let location = "settings.locationLogging"
         static let calendar = "settings.calendarWriting"
@@ -103,6 +111,15 @@ final class AppSettings {
         minimumVisitMinutes = defaults.object(forKey: Keys.minimumMinutes) as? Int ?? 5
         aiAssistantEnabled = defaults.object(forKey: Keys.ai) as? Bool ?? false
         visitSyncEnabled = defaults.object(forKey: Keys.visitSync) as? Bool ?? false
+        if let raw = defaults.string(forKey: Keys.calendarDestination), let kind = CalendarDestinationKind(rawValue: raw) {
+            calendarDestination = kind
+        } else {
+            // Apple Calendar for new users. Anyone already writing to Google (before Apple Calendar
+            // existed) stays on Google; the choice is saved so it never changes by itself.
+            let kind: CalendarDestinationKind = calendarWritingEnabled ? .google : .apple
+            calendarDestination = kind
+            defaults.set(kind.rawValue, forKey: Keys.calendarDestination)
+        }
     }
 
     func resetToDefaults() {
@@ -112,5 +129,6 @@ final class AppSettings {
         minimumVisitMinutes = 5
         aiAssistantEnabled = false
         visitSyncEnabled = false
+        calendarDestination = .apple
     }
 }

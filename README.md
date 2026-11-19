@@ -1,11 +1,11 @@
 # DayLedger
 
-An iOS app (SwiftUI, iOS 17+) that combines your spending, the places you visit and Google Calendar:
+An iOS app (SwiftUI, iOS 17+) that combines your spending, the places you visit and your calendar:
 
 - **Today**: total spent today and today's transactions from your UK bank (Open Banking via TrueLayer), cached offline.
 - **Widgets**: home screen (small, medium) and lock screen (rectangular, inline, circular) widgets showing today's spend.
-- **Places**: battery-friendly visit logging that writes entries like "At Costa Coffee · £3.40, 09:10–09:45" to a dedicated **DayLedger** Google calendar.
-- **Suggest** (optional, DayLedger Pro): an AI assistant, using your own API key, that proposes events from your routine. Nothing is added until you approve it.
+- **Places**: battery-friendly visit logging that writes entries like "At Costa Coffee · £3.40, 09:10–09:45" to a dedicated **DayLedger** calendar, in Apple Calendar (default, no sign-in) or Google Calendar.
+- **Suggest** (optional, DayLedger Pro): an AI assistant that proposes events from your routine. Nothing is added until you approve it.
 - **Account** (optional): sign in for **DayLedger Pro**, which adds cloud sync (end-to-end encrypted) and AI suggestions. Everything above except Suggest works without an account.
 
 > "DayLedger" is a placeholder name.
@@ -102,7 +102,16 @@ The App Group is derived automatically as `group.$(DL_BUNDLE_ID)`.
 
 **Going live** requires TrueLayer to approve your application for production access, which may not be offered to individuals. Set `TRUELAYER_ENVIRONMENT = live` once approved. UK banks require re-confirming access every 90 days; the app shows a **Reconnect** prompt when that happens.
 
-## Google Cloud OAuth setup
+## Calendar
+
+Visits and approved suggestions go to a calendar called **DayLedger**. **Settings → Calendar** chooses where:
+
+- **Apple Calendar** (default): the calendars on the iPhone, through EventKit; the DayLedger calendar is created in the account new events go to (usually iCloud). Tap **Allow calendar access**. iOS 17's *write-only* access isn't enough, because DayLedger must find and update its own events instead of duplicating them, so the app asks for full access. Events are found again by a `dayledger://event/<id>` URL, so a reinstall doesn't create duplicates. From other calendars DayLedger reads only busy times.
+- **Google Calendar** (optional): needs the Google Cloud setup below. Anyone who was already writing to Google before Apple Calendar support stays on Google.
+
+Switching calendars rewrites the last 7 days of visits to the new one.
+
+## Google Cloud OAuth setup (only for Google Calendar)
 
 1. Create a project at [console.cloud.google.com](https://console.cloud.google.com).
 2. **APIs & Services → Library**: enable the **Google Calendar API**.
@@ -133,18 +142,17 @@ Both entitlements files (`App/DayLedger.entitlements`, `Widget/DayLedgerWidget.e
 
 ## AI assistant
 
-Optional and off by default.
+Optional, off by default, and part of DayLedger Pro. Users don't need an API key: suggestions run on the backend with DayLedger's own Anthropic key.
 
-1. Get an API key from [console.anthropic.com](https://console.anthropic.com). Usage is billed to your Anthropic account.
-2. **Settings → AI assistant → Connect AI**, paste the key and tap **Save key**. It's stored only in the iOS Keychain.
-3. Tap **Preview what would be sent** to see the exact JSON.
-4. Open the **Suggest** tab → **Suggest events from my routine**. Approve or reject each suggestion (or **Approve all**), then **Add to calendar**. Only approved events are written, to the DayLedger calendar.
+1. Backend: `supabase secrets set ANTHROPIC_API_KEY=…` (optionally `ANTHROPIC_MODEL`, default `claude-opus-5-5`, and `AI_DAILY_LIMIT`, default 20 requests per user per day) and deploy the `ai-suggest` function (see [`supabase/README.md`](supabase/README.md)).
+2. In the app: **Settings → AI suggestions** → turn on. **Preview what would be sent** shows the exact JSON.
+3. Open the **Suggest** tab → **Suggest events from my routine**. Approve or reject each suggestion (or **Approve all**), then **Add to calendar**. Only approved events are written, to the DayLedger calendar.
 
 Details:
 
-- Model: `claude-opus-5-5`, with structured JSON output and Anthropic's server-side refusal fallback (`fallbacks: "default"`), so a safety refusal is retried on a fallback model within the same request.
-- Every suggestion is validated before you see it (future, within 14 days, 5–480 minutes, no clash with busy times, no duplicates).
-- Other providers can be added by implementing `AIProvider` (`Packages/DayLedgerKit/Sources/AIKit/AIProvider.swift`) and adding it to `AppEnvironment.aiProviders`.
+- The app sends only the anonymised `RoutineSummary`. The `ai-suggest` function (`supabase/functions/_shared/ai.ts`) checks the user's subscription and daily limit, re-validates the summary against an allowlist (so the endpoint can't be used as a general prompt proxy), builds the prompt and calls Anthropic with structured JSON output and the server-side refusal fallback (`fallbacks: "default"`). Neither the summary nor the answer is stored; only a per-day request count (`ai_usage`).
+- Every suggestion is validated again on the device before you see it (future, within 14 days, 5–480 minutes, no clash with busy times, no duplicates).
+- Earlier versions asked for your own Anthropic key; it is removed from the Keychain on upgrade.
 
 ## Architecture
 
@@ -187,7 +195,7 @@ Key flows:
 - **Upgrading from an earlier version**: data that older versions uploaded in plaintext is re-uploaded encrypted on the first sync (which erases the plaintext). Visits that older versions uploaded wait for your choice in Settings or Places: keep them (encrypted) or remove them from your account.
 - If the sync key is lost on every device (for example iCloud Keychain turned off everywhere), the synced copy can't be read by anyone, including DayLedger. **Settings → Cloud sync → Start over with this iPhone's data** deletes it and uploads again with a new key.
 - The AI receives an anonymised summary only: no coordinates, addresses, account details, individual transactions or event titles. A unit test asserts this.
-- **Settings → Privacy & your data** explains what is collected and where it goes. **Delete all my data** deletes your DayLedger account (if any) and its sync key, stops location logging, revokes the bank consent and the Google sign-in, optionally deletes the DayLedger Google calendar, and wipes the local database, widget data, Keychain items and preferences.
+- **Settings → Privacy & your data** explains what is collected and where it goes. **Delete all my data** deletes your DayLedger account (if any) and its sync key, stops location logging, revokes the bank consent and the Google sign-in, optionally deletes the DayLedger calendar (Apple and/or Google), and wipes the local database, widget data, Keychain items and preferences.
 - No analytics, no ads, no tracking. The only server of our own is the optional account backend (`supabase/`).
 - **Privacy manifests**: `App/PrivacyInfo.xcprivacy` (UserDefaults reasons `CA92.1` and `1C8F.1`; collected data: email address, user ID, purchase history, other financial info and precise location, all linked to the account, used only for app functionality, never for tracking) and `Widget/PrivacyInfo.xcprivacy` (nothing collected, no required-reason APIs). Keep the App Store Connect privacy label in line with them. Financial info and location are end-to-end encrypted but declared anyway, to be conservative.
 
@@ -195,12 +203,12 @@ Key flows:
 
 Unit tests:
 
-- `CalendarKitTests`: transaction-to-visit matching rules, calendar event building, Calendar API client (create/update, 401 retry, 403), PKCE.
-- `AIKitTests`: AI proposal parsing and validation, summary anonymisation, Anthropic request and response handling (refusal, truncation, bad key).
+- `CalendarKitTests`: transaction-to-visit matching rules, calendar event building, Google Calendar API client (create/update, 401 retry, 403), PKCE, the Apple Calendar destination against an in-memory event store (access, calendar reuse, no duplicates).
+- `AIKitTests`: AI proposal parsing and validation, summary anonymisation, the backend AI provider (what's sent, error mapping). The Anthropic call itself is tested with the Edge Function.
 - `BankKitTests`: TrueLayer parsing, categorisation, spending maths, token refresh, expired consent, the backend token exchange (no secret sent, error mapping).
 - `AccountKitTests`: auth, entitlement, PostgREST client, encrypted sync rows (no plaintext uploaded, legacy rows read), AES-GCM sealing (tampering, wrong key, rows bound to user and id), sync key registration races.
 - `SharedModelsTests`: widget snapshot, visit merging.
-- `DayLedgerTests`: Today view model (offline cache), pending→settled replacement, end-to-end calendar sync without duplicates, cloud sync (encryption, plaintext → encrypted upgrade, missing key, opt-in visit sync, start over, resumable pulls), local-first gating, token exchanger selection, the sync coordinator (order, merging), store migration from schema V1 and recovery from an unreadable store.
+- `DayLedgerTests`: Today view model (offline cache), pending→settled replacement, end-to-end calendar sync without duplicates, cloud sync (encryption, plaintext → encrypted upgrade, missing key, opt-in visit sync, start over, resumable pulls), local-first gating, token exchanger selection, the sync coordinator (order, merging), store migration from schema V1 and recovery from an unreadable store, Apple Calendar sync (no duplicates, reinstall, no access, switching calendars, default for new vs existing users).
 - `supabase/`: Deno tests for the Edge Functions (including `truelayer-token`) and pgTAP tests for the schema (including `06_encryption.test.sql`), run by `.github/workflows/backend.yml`.
 - `DayLedgerUITests`: launches the app with mock data (Today, Privacy, Places, Suggest).
 
@@ -223,6 +231,8 @@ cd Packages/DayLedgerKit && xcodebuild test -scheme DayLedgerKit-Package -destin
 | TrueLayer login, token exchange and refresh against the real sandbox | Needs your sandbox client ID/secret and the redirect URI registered | Connect **Mock Bank**, pull to refresh, wait an hour (tokens expire) and refresh again |
 | Real bank data (live) | Needs TrueLayer production approval | Check merchant names, categories, pending → settled, and timestamps for your bank |
 | 90-day consent expiry | Real time | The **Reconnect** prompt should appear; covered by unit tests with simulated 401/403 |
+| Apple Calendar permission and real calendars | The permission prompt and EventKit need a device or a simulator with a person tapping | Settings → Calendar → Allow calendar access → Full Access, turn on writing, **Sync now**: a DayLedger calendar appears in the Calendar app. Delete the app and reinstall: no duplicate events |
+| AI suggestions end to end | Needs `ANTHROPIC_API_KEY` on the backend and a Pro account | Suggest → approve one → it appears in the DayLedger calendar; the 21st request of the day says the limit is reached |
 | Google sign-in and the narrow calendar scopes | Needs your OAuth client; scope acceptance depends on your Google project | Sign in, enable calendar writing, tap **Sync now**, check the DayLedger calendar appears |
 | Google "Testing" 7-day refresh token expiry | Real time | After a week, Settings should ask you to sign in again |
 | Visit monitoring and significant location changes | Simulator can't produce real visits; background relaunch only happens on a device | Enable location with **Always**, go about your day, check the Places tab and calendar |

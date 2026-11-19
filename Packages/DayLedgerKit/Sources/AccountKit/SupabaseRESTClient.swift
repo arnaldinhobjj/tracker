@@ -192,6 +192,11 @@ public final class SupabaseRESTClient: @unchecked Sendable {
         return try decodeEntitlement(data)
     }
 
+    /// `POST /functions/v1/<name>` with a JSON body, as the signed-in user. Returns the response body.
+    public func invokeFunction(_ name: String, body: Data) async throws -> Data {
+        try await function(name, method: "POST", body: body)
+    }
+
     /// Deletes the account and, by cascade, every synced row.
     public func deleteAccount() async throws {
         _ = try await function("delete-account", method: "POST", body: Data("{}".utf8))

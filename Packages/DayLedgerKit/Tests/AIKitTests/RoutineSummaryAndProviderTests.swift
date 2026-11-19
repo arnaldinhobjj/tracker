@@ -57,62 +57,68 @@ final class RoutineSummaryTests: XCTestCase {
     }
 }
 
-final class AnthropicProviderTests: XCTestCase {
+/// The request and error handling of the Anthropic call itself are tested with the Edge Function
+/// (supabase/functions/_shared/ai_test.ts). Here: what the app sends and how it reads the answer.
+final class BackendAIProviderTests: XCTestCase {
     let parser = ProposalParser(now: londonDate(2024, 3, 6, 12), timeZone: TimeZone(identifier: "Europe/London")!)
     let summary = RoutineSummary(today: "2024-03-06T12:00:00Z", timeZone: "Europe/London", periodDays: 28,
                                  places: [], spending: [], busy: [], planningWindowDays: 14)
 
-    func testBuildsRequestWithKeyHeadersAndStructuredOutput() throws {
-        let provider = AnthropicProvider(http: StubHTTPClient(), apiKey: { "sk-ant-test" })
-        let request = try provider.makeRequest(summary: summary)
-        XCTAssertEqual(request.url, AnthropicProvider.endpoint)
-        XCTAssertEqual(request.value(forHTTPHeaderField: "x-api-key"), "sk-ant-test")
-        XCTAssertEqual(request.value(forHTTPHeaderField: "anthropic-version"), "2026-10-21")
-        let body = try XCTUnwrap(JSONSerialization.jsonObject(with: try XCTUnwrap(request.httpBody)) as? [String: Any])
-        XCTAssertEqual(body["model"] as? String, "claude-opus-5-5")
-        let outputConfig = try XCTUnwrap(body["output_config"] as? [String: Any])
-        XCTAssertEqual((outputConfig["format"] as? [String: Any])?["type"] as? String, "json_schema")
-        XCTAssertNil(body["tool_choice"], "Forced tool use is not supported on this model")
+    private final class Recorder: @unchecked Sendable {
+        var bodies: [Data] = []
     }
 
-    func testMissingKeyFailsBeforeAnyRequest() async {
-        let http = StubHTTPClient()
-        let provider = AnthropicProvider(http: http, apiKey: { nil })
-        do {
-            _ = try await provider.proposeEvents(for: summary, parser: parser)
-            XCTFail("expected error")
-        } catch {
-            XCTAssertEqual(error as? AIError, .missingAPIKey)
-            XCTAssertTrue(http.requests.isEmpty)
+    func testSendsOnlyTheSummaryAndParsesTheProposals() async throws {
+        let recorder = Recorder()
+        let text = #"{"proposals":[{"title":"Gym","start":"2024-03-07T07:00:00Z","durationMinutes":60,"reason":"r","confidence":"high"}]}"#
+        let reply = try JSONSerialization.data(withJSONObject: ["text": text])
+        let provider = BackendAIProvider { body in
+            recorder.bodies.append(body)
+            return reply
         }
-    }
 
-    func testParsesTextBlockAndSkipsThinking() async throws {
-        let http = StubHTTPClient()
-        let proposals = #"{\"proposals\":[{\"title\":\"Gym\",\"start\":\"2024-03-07T07:00:00Z\",\"durationMinutes\":60,\"reason\":\"r\",\"confidence\":\"high\"}]}"#
-        http.on("/v1/messages", body: #"{"content":[{"type":"thinking","thinking":""},{"type":"text","text":"\#(proposals)"}],"stop_reason":"end_turn"}"#)
-        let result = try await AnthropicProvider(http: http, apiKey: { "k" }).proposeEvents(for: summary, parser: parser)
+        let result = try await provider.proposeEvents(for: summary, parser: parser)
+
         XCTAssertEqual(result.proposals.map(\.title), ["Gym"])
+        let sent = try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap(recorder.bodies.first)) as? [String: Any])
+        XCTAssertEqual(Array(sent.keys), ["summary"], "Nothing but the anonymised summary")
+        XCTAssertEqual((sent["summary"] as? [String: Any])?["timeZone"] as? String, "Europe/London")
     }
 
-    func testRefusalAndTruncationAndBadKey() async {
-        func run(status: Int = 200, body: String) async -> AIError? {
-            let http = StubHTTPClient()
-            http.on("/v1/messages", status: status, body: body)
+    func testBackendErrorsMapToAIErrors() async {
+        let cases: [(Int, String, AIError)] = [
+            (403, #"{"error":"not_entitled","message":"Pro"}"#, .notEntitled),
+            (429, #"{"error":"daily_limit","message":"Limit of 20 reached."}"#, .dailyLimitReached("Limit of 20 reached.")),
+            (422, #"{"error":"refused","message":"x"}"#, .refused),
+            (502, #"{"error":"truncated","message":"x"}"#, .truncated),
+            (503, #"{"error":"provider_busy","message":"x"}"#, .overloaded),
+            (400, #"{"error":"invalid_summary","message":"Bad summary."}"#, .providerError(status: 400, message: "Bad summary.")),
+        ]
+        for (status, body, expected) in cases {
+            let provider = BackendAIProvider { _ in throw NetworkError.http(status: status, body: body) }
             do {
-                _ = try await AnthropicProvider(http: http, apiKey: { "k" }).proposeEvents(for: summary, parser: parser)
-                return nil
+                _ = try await provider.proposeEvents(for: summary, parser: parser)
+                XCTFail("Expected \(expected)")
             } catch {
-                return error as? AIError
+                XCTAssertEqual(error as? AIError, expected, "\(status) \(body)")
             }
         }
-        let refused = await run(body: #"{"content":[],"stop_reason":"refusal"}"#)
-        XCTAssertEqual(refused, .refused)
-        let truncated = await run(body: #"{"content":[{"type":"text","text":"{\"proposals\":["}],"stop_reason":"max_tokens"}"#)
-        XCTAssertEqual(truncated, .truncated)
-        let badKey = await run(status: 401, body: #"{"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"}}"#)
-        XCTAssertEqual(badKey, .invalidAPIKey)
-        let busy = await run(status: 529, body: #"{"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}"#)
-        XCTAssertEqual(busy, .overloaded)
+        let offline = BackendAIProvider { _ in throw NetworkError.offline }
+        do {
+            _ = try await offline.proposeEvents(for: summary, parser: parser)
+            XCTFail("Expected offline")
+        } catch {
+            XCTAssertEqual(error as? AIError, .offline)
+        }
+    }
+
+    func testAnUnexpectedBodyIsAnInvalidResponse() async {
+        let provider = BackendAIProvider { _ in Data("not json".utf8) }
+        do {
+            _ = try await provider.proposeEvents(for: summary, parser: parser)
+            XCTFail("Expected an error")
+        } catch {
+            guard case .invalidResponse = error as? AIError else { return XCTFail("\(error)") }
+        }
     }
 }

@@ -18,7 +18,7 @@ struct DataEraser {
     /// Erases everything. When signed in to a DayLedger account, the account and its cloud copy
     /// are deleted first (if that fails nothing else is touched, so it can be retried), and the
     /// user is signed out at the end.
-    func eraseAll(deleteGoogleCalendar: Bool) async -> Report {
+    func eraseAll(deleteCalendars: Bool) async -> Report {
         var report = Report()
         let account = environment.account
 
@@ -42,13 +42,9 @@ struct DataEraser {
         environment.locationLogging.setEnabled(false)
         environment.settings.calendarWritingEnabled = false
 
-        // Google: optionally remove the DayLedger calendar, then revoke the sign-in.
-        if deleteGoogleCalendar && environment.googleAuth.isSignedIn {
-            do {
-                try await environment.calendarSync.deleteCalendar()
-            } catch {
-                report.failures.append("Google calendar: \(UserFacingError(error).message)")
-            }
+        // Optionally remove the DayLedger calendar (Apple and/or Google), then revoke Google.
+        if deleteCalendars {
+            report.failures += await environment.calendarSync.deleteCalendars()
         }
         await environment.googleAuth.signOut()
         environment.calendarSync.forgetCalendar()

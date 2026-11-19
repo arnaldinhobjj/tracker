@@ -32,6 +32,7 @@ public extension SecureStoring {
 public enum SecureStoreKey {
     public static func trueLayerTokens(connectionID: String) -> String { "truelayer.tokens.\(connectionID)" }
     public static let googleTokens = "google.tokens"
+    /// Legacy: user-supplied AI API keys (before AI moved to the backend). Only removed now.
     public static func aiAPIKey(provider: String) -> String { "ai.apikey.\(provider)" }
     /// The DayLedger account session (Supabase access + refresh token).
     public static let supabaseSession = "supabase.session"

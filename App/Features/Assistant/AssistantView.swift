@@ -1,7 +1,7 @@
 import AIKit
 import SwiftUI
 
-/// Review screen for AI suggestions. Nothing reaches Google Calendar until the user approves it.
+/// Review screen for AI suggestions. Nothing reaches the calendar until the user approves it.
 struct AssistantView: View {
     let environment: AppEnvironment
     @State var model: AssistantViewModel
@@ -14,12 +14,12 @@ struct AssistantView: View {
                         ProUpsellView(environment: environment, title: "AI suggestions are part of Pro", systemImage: "sparkles",
                                       message: "DayLedger Pro proposes events from your routine. Nothing is added to your calendar until you approve it.")
                     }
-                } else if !environment.settings.aiAssistantEnabled || !model.hasAPIKey {
+                } else if !environment.settings.aiAssistantEnabled {
                     Section {
                         ContentUnavailableView {
                             Label("AI assistant is off", systemImage: "sparkles")
                         } description: {
-                            Text("Connect an AI provider with your own API key in Settings → AI assistant. It's optional: everything else works without it.")
+                            Text("Turn on AI suggestions in Settings → AI suggestions. It's optional: everything else works without it.")
                         }
                     }
                 } else {
@@ -36,7 +36,7 @@ struct AssistantView: View {
                         .disabled(model.isLoading)
                         .accessibilityIdentifier("suggestButton")
                     } footer: {
-                        Text("Sends an anonymised summary (place names, usual days and times, weekly spend per category rounded to £5, busy/free times) to \(model.provider?.displayName ?? "the provider").")
+                        Text("Sends an anonymised summary (place names, usual days and times, weekly spend per category rounded to £5, busy/free times) through DayLedger's server to Anthropic's Claude. Neither is stored by DayLedger.")
                     }
 
                     if let error = model.error {
@@ -82,10 +82,12 @@ struct AssistantView: View {
                                     if model.isCreating { ProgressView() }
                                 }
                             }
-                            .disabled(model.approvedProposals.isEmpty || model.isCreating || !environment.calendarSync.isSignedIn)
+                            .disabled(model.approvedProposals.isEmpty || model.isCreating || !environment.calendarSync.isAuthorized)
                         } footer: {
-                            if !environment.calendarSync.isSignedIn {
-                                Text("Sign in with Google in Settings to add events.")
+                            if !environment.calendarSync.isAuthorized {
+                                Text(environment.settings.calendarDestination == .apple
+                                     ? "Allow calendar access in Settings → Calendar to add events."
+                                     : "Sign in with Google in Settings → Calendar to add events.")
                             }
                         }
                     }

@@ -1,7 +1,6 @@
 import AIKit
 import Foundation
 import Observation
-import SecureStore
 
 @MainActor
 @Observable
@@ -25,11 +24,6 @@ final class AssistantViewModel {
     }
 
     var provider: AIProvider? { environment.aiProviders.first }
-
-    var hasAPIKey: Bool {
-        guard let provider else { return false }
-        return ((try? environment.secureStore.string(for: SecureStoreKey.aiAPIKey(provider: provider.id))) ?? nil)?.isEmpty == false
-    }
 
     var approvedProposals: [EventProposal] {
         proposals.filter { decisions[$0.id] == .approved }
@@ -78,7 +72,7 @@ final class AssistantViewModel {
         }
     }
 
-    /// Writes only the approved proposals to Google Calendar.
+    /// Writes only the approved proposals to the DayLedger calendar.
     func createApproved() async {
         let approved = approvedProposals
         guard !approved.isEmpty, !isCreating else { return }

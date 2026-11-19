@@ -118,3 +118,7 @@ verify_jwt = false
 [functions.truelayer-token]
 # The anon key is enough: bank connections work without a DayLedger account.
 verify_jwt = true
+
+[functions.ai-suggest]
+# DayLedger Pro only: the function checks the user and their subscription.
+verify_jwt = true

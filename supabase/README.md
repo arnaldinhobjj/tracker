@@ -1,21 +1,22 @@
 # DayLedger backend (Supabase)
 
 Postgres schema + row-level security, Supabase Auth, four Edge Functions that verify the
-App Store subscription, and one that exchanges TrueLayer tokens so the client secret never ships
-in the app. Synced transactions and visits are end-to-end encrypted by the app: the database
+App Store subscription, one that exchanges TrueLayer tokens so the client secret never ships
+in the app, and one that runs AI suggestions for DayLedger Pro with DayLedger's own Anthropic key. Synced transactions and visits are end-to-end encrypted by the app: the database
 stores ciphertext. The binding spec is [`docs/backend-contract.md`](../docs/backend-contract.md).
 
 ```
 supabase/
   config.toml                         local stack (`supabase start`) + function JWT settings
   migrations/                         schema, RLS, has_active_entitlement(), grants
-  tests/database/*.test.sql           pgTAP: RLS isolation, entitlement gating, cascade deletes, encryption
+  tests/database/*.test.sql           pgTAP: RLS isolation, entitlement gating, cascade deletes, encryption, AI quota
   functions/
     verify-subscription/              POST, user JWT: verify a StoreKit 2 transaction, store it
     entitlement/                      GET,  user JWT: current entitlement
     app-store-notifications/          POST, no JWT: App Store Server Notifications V2
     delete-account/                   POST, user JWT: delete the auth user (cascades)
     truelayer-token/                  POST, anon key: TrueLayer code exchange / refresh with the client secret
+    ai-suggest/                       POST, user JWT + Pro: AI event suggestions (Anthropic), daily limit
     _shared/                          JWS verification, App Store Server API, status mapping, …
 ```
 
@@ -32,7 +33,7 @@ Nothing secret lives in this repo. You need the [Supabase CLI](https://supabase.
    supabase login
    supabase link --project-ref <ref>          # <ref> is in the project URL
    supabase db push                           # applies supabase/migrations
-   supabase functions deploy                  # deploys all five functions
+   supabase functions deploy                  # deploys all six functions
    ```
 
    `supabase functions deploy` reads `config.toml`, so `app-store-notifications` is deployed
@@ -60,6 +61,9 @@ supabase secrets set \
   TRUELAYER_CLIENT_ID=<client id> \
   TRUELAYER_CLIENT_SECRET=<client secret> \
   TRUELAYER_ENVIRONMENT=sandbox            # or live, once TrueLayer approves production
+
+supabase secrets set ANTHROPIC_API_KEY=<key from console.anthropic.com>
+# Optional: ANTHROPIC_MODEL (default claude-opus-5-5), AI_DAILY_LIMIT (default 20 per user per day)
 ```
 
 | Secret | Where it comes from |
@@ -72,6 +76,7 @@ supabase secrets set \
 | `TRUELAYER_CLIENT_ID` | TrueLayer console → App settings. Must equal the app's `TRUELAYER_CLIENT_ID`. Required by `truelayer-token`. |
 | `TRUELAYER_CLIENT_SECRET` | TrueLayer console → App settings. Lives only here; never in the app or the repo. Required by `truelayer-token`. |
 | `TRUELAYER_ENVIRONMENT` | `sandbox` (default) or `live`. |
+| `ANTHROPIC_API_KEY` | console.anthropic.com → API keys. Required by `ai-suggest`. Billed to DayLedger's Anthropic account; `AI_DAILY_LIMIT` caps each user. |
 | `TRUELAYER_REDIRECT_URI` | Optional; default `dayledger://truelayer-callback`. Must match the app and the TrueLayer console. |
 
 `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` are provided automatically.

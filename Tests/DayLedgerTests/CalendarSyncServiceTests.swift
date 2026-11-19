@@ -1,3 +1,4 @@
+import AIKit
 import CalendarKit
 import LocationKit
 import Networking
@@ -21,7 +22,9 @@ final class CalendarSyncServiceTests: XCTestCase {
         try store.setValue(OAuthTokens(accessToken: "a", refreshToken: "r", expiresAt: .distantFuture), for: SecureStoreKey.googleTokens)
         let http = StubHTTPClient()
         let auth = GoogleAuthService(configuration: GoogleOAuthConfiguration(clientID: "1-x.apps.googleusercontent.com"), store: store, http: http)
-        let sync = CalendarSyncService(auth: auth, client: GoogleCalendarClient(tokens: auth, http: http), visits: visits,
+        settings.calendarDestination = .google
+        let sync = CalendarSyncService(google: GoogleCalendarDestination(auth: auth, client: GoogleCalendarClient(tokens: auth, http: http)),
+                                       apple: EventKitCalendarDestination(store: InMemoryEventStore()), visits: visits,
                                        transactions: transactions, settings: settings, defaults: defaults)
 
         let now = Date()
@@ -74,10 +77,155 @@ final class CalendarSyncServiceTests: XCTestCase {
         try store.setValue(OAuthTokens(accessToken: "a", refreshToken: "r", expiresAt: .distantFuture), for: SecureStoreKey.googleTokens)
         let http = StubHTTPClient()
         let auth = GoogleAuthService(configuration: GoogleOAuthConfiguration(clientID: "1-x.apps.googleusercontent.com"), store: store, http: http)
-        let sync = CalendarSyncService(auth: auth, client: GoogleCalendarClient(tokens: auth, http: http),
+        let settings = AppSettings(defaults: defaults)
+        settings.calendarDestination = .google
+        let sync = CalendarSyncService(google: GoogleCalendarDestination(auth: auth, client: GoogleCalendarClient(tokens: auth, http: http)),
+                                       apple: EventKitCalendarDestination(store: InMemoryEventStore(access: .granted)),
                                        visits: VisitRepository(container: container), transactions: TransactionRepository(container: container),
-                                       settings: AppSettings(defaults: defaults), defaults: defaults)
+                                       settings: settings, defaults: defaults)
         await sync.sync()
         XCTAssertTrue(http.requests.isEmpty)
+    }
+}
+
+/// Apple Calendar (EventKit), the default destination, against an in-memory event store.
+@MainActor
+final class AppleCalendarSyncTests: XCTestCase {
+    private struct Harness {
+        let sync: CalendarSyncService
+        let store: InMemoryEventStore
+        let visits: VisitRepository
+        let transactions: TransactionRepository
+        let settings: AppSettings
+        let http: StubHTTPClient
+    }
+
+    private func makeHarness(access: EventAccess = .granted) -> Harness {
+        let container = PersistenceController.makeContainer(appGroupID: "", inMemory: true)
+        let defaults = UserDefaults(suiteName: "tests.\(UUID().uuidString)")!
+        let settings = AppSettings(defaults: defaults)
+        settings.calendarWritingEnabled = true
+        let store = InMemoryEventStore(access: access)
+        let http = StubHTTPClient()
+        let auth = GoogleAuthService(configuration: GoogleOAuthConfiguration(clientID: "1-x.apps.googleusercontent.com"),
+                                     store: InMemorySecureStore(), http: http)
+        let visits = VisitRepository(container: container)
+        let transactions = TransactionRepository(container: container)
+        let sync = CalendarSyncService(google: GoogleCalendarDestination(auth: auth, client: GoogleCalendarClient(tokens: auth, http: http)),
+                                       apple: EventKitCalendarDestination(store: store), visits: visits, transactions: transactions,
+                                       settings: settings, defaults: defaults)
+        return Harness(sync: sync, store: store, visits: visits, transactions: transactions, settings: settings, http: http)
+    }
+
+    private func recordCoffeeVisit(_ h: Harness, pence: Int, id: String = "t1") throws -> StoredVisit {
+        let now = Date()
+        let arrival = now.addingTimeInterval(-3_600)
+        let visit = try XCTUnwrap(h.visits.record(VisitEvent(arrival: arrival, departure: now.addingTimeInterval(-1_800), latitude: 51.5,
+                                                             longitude: -0.12, horizontalAccuracy: 20)))
+        try h.visits.applyPlace(ResolvedPlace(name: "Costa Coffee", category: "MKPOICategoryCafe", isPointOfInterest: true), to: visit)
+        try h.transactions.apply([BankTransaction(id: id, accountID: "a", merchant: "Costa Coffee", rawDescription: "COSTA", amountMinor: pence,
+                                                  direction: .debit, bankCategory: "PURCHASE", category: .coffee,
+                                                  timestamp: arrival.addingTimeInterval(300), hasTime: true, isPending: false)],
+                                 refreshedAccountIDs: [])
+        return visit
+    }
+
+    func testNewUsersWriteToAppleCalendar() {
+        let fresh = AppSettings(defaults: UserDefaults(suiteName: "tests.\(UUID().uuidString)")!)
+        XCTAssertEqual(fresh.calendarDestination, .apple)
+    }
+
+    func testExistingGoogleWritersStayOnGoogle() {
+        let defaults = UserDefaults(suiteName: "tests.\(UUID().uuidString)")!
+        // Written by a version before Apple Calendar: calendar writing on, no destination saved.
+        defaults.set(true, forKey: "settings.calendarWriting")
+        XCTAssertEqual(AppSettings(defaults: defaults).calendarDestination, .google)
+        XCTAssertEqual(defaults.string(forKey: "settings.calendarDestination"), "google", "Saved, so it never flips")
+    }
+
+    func testWritesOnceThenUpdatesTheSameEvent() async throws {
+        let h = makeHarness()
+        _ = try recordCoffeeVisit(h, pence: 340)
+
+        await h.sync.sync()
+
+        XCTAssertNil(h.sync.error, "\(String(describing: h.sync.error))")
+        XCTAssertEqual(h.store.calendars.values.map(\.title), ["DayLedger"], "Created its own calendar")
+        XCTAssertEqual(h.store.events.count, 1)
+        XCTAssertEqual(h.store.events.values.first?.fields.title, "At Costa Coffee · £3.40")
+        XCTAssertTrue(h.http.requests.isEmpty, "Nothing goes to Google")
+
+        // Re-syncing writes nothing; a new purchase updates the same event.
+        await h.sync.sync()
+        XCTAssertEqual(h.store.events.count, 1)
+        try h.transactions.apply([BankTransaction(id: "t2", accountID: "a", merchant: "Costa Coffee", rawDescription: "COSTA", amountMinor: 250,
+                                                  direction: .debit, bankCategory: "PURCHASE", category: .coffee,
+                                                  timestamp: Date().addingTimeInterval(-3_000), hasTime: true, isPending: false)],
+                                 refreshedAccountIDs: [])
+        await h.sync.sync()
+        XCTAssertEqual(h.store.events.count, 1, "Updated, not duplicated")
+        XCTAssertEqual(h.store.events.values.first?.fields.title, "At Costa Coffee · £5.90")
+    }
+
+    func testFindsItsCalendarAndEventsAgainAfterAReinstall() async throws {
+        let h = makeHarness()
+        _ = try recordCoffeeVisit(h, pence: 340)
+        await h.sync.sync()
+        let calendarID = try XCTUnwrap(h.store.calendars.keys.first)
+
+        // Reinstall: the remembered calendar ID and the visits' write records are gone.
+        h.sync.forgetCalendar()
+        h.visits.resetSyncState()
+        await h.sync.sync()
+
+        XCTAssertEqual(Array(h.store.calendars.keys), [calendarID], "Found by title, not recreated")
+        XCTAssertEqual(h.store.events.count, 1, "Found by its dayledger:// URL, not duplicated")
+    }
+
+    func testWithoutFullAccessNothingIsWritten() async throws {
+        for access in [EventAccess.notDetermined, .writeOnly, .denied] {
+            let h = makeHarness(access: access)
+            _ = try recordCoffeeVisit(h, pence: 340)
+            await h.sync.sync()
+            XCTAssertTrue(h.store.calendars.isEmpty)
+            do {
+                _ = try await h.sync.createEvents(for: [EventProposal(id: "p", title: "Gym", start: Date().addingTimeInterval(86_400),
+                                                                      durationMinutes: 60, reason: "r", confidence: .high)])
+                XCTFail("Expected an error")
+            } catch {
+                XCTAssertEqual(error as? CalendarError, .calendarAccessDenied)
+            }
+        }
+    }
+
+    func testSwitchingCalendarsRewritesRecentVisitsToTheNewOne() async throws {
+        let h = makeHarness()
+        let visit = try recordCoffeeVisit(h, pence: 340)
+        h.settings.calendarDestination = .google
+        h.visits.markSynced(visit, eventID: "x", hash: "written-to-google")
+
+        h.sync.switchDestination(to: .apple)
+        await h.sync.sync()
+
+        XCTAssertEqual(h.settings.calendarDestination, .apple)
+        XCTAssertEqual(h.store.events.count, 1, "The visit is written to Apple Calendar too")
+    }
+
+    func testApprovedSuggestionsAreWrittenOnce() async throws {
+        let h = makeHarness()
+        let proposal = EventProposal(id: "gym|1", title: "Gym", start: Date().addingTimeInterval(86_400), durationMinutes: 60,
+                                     reason: "Most Tuesdays", confidence: .high)
+        _ = try await h.sync.createEvents(for: [proposal])
+        _ = try await h.sync.createEvents(for: [proposal])
+        XCTAssertEqual(h.store.events.count, 1)
+        XCTAssertEqual(h.store.events.values.first?.fields.isBusy, true)
+    }
+
+    func testBusyTimesComeFromAllCalendars() async {
+        let h = makeHarness()
+        let meeting = DateInterval(start: Date().addingTimeInterval(3_600), duration: 1_800)
+        h.store.otherBusy = [meeting]
+        let busy = await h.sync.busyIntervals(from: Date(), to: Date().addingTimeInterval(86_400))
+        XCTAssertEqual(busy, [meeting])
     }
 }

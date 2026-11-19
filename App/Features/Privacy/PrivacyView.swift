@@ -8,7 +8,7 @@ struct PrivacyView: View {
     @State private var isErasing = false
     @State private var resultMessage: String?
     @State private var resultTitle = "Data deleted"
-    @State private var deleteGoogleCalendar = true
+    @State private var deleteCalendars = true
 
     var body: some View {
         List {
@@ -18,9 +18,9 @@ struct PrivacyView: View {
                 PrivacyRow(icon: "location", title: "Places you visit",
                            detail: "Only if you turn on location logging. Uses iOS visit detection (not continuous GPS) to record arrival and departure times, the visit's coordinates and a nearby place name.")
                 PrivacyRow(icon: "calendar", title: "Calendar",
-                           detail: "Only if you sign in with Google. DayLedger writes to its own \"DayLedger\" calendar and reads only free/busy times from your other calendars.")
-                PrivacyRow(icon: "sparkles", title: "AI suggestions (optional)",
-                           detail: "Only if you add your own API key and ask for suggestions.")
+                           detail: "Only if you turn on calendar writing. DayLedger writes to its own \"DayLedger\" calendar (Apple Calendar on this iPhone, or Google Calendar if you choose it) and reads only busy/free times from your other calendars, never their titles or details.")
+                PrivacyRow(icon: "sparkles", title: "AI suggestions (optional, DayLedger Pro)",
+                           detail: "Only if you turn them on and ask for suggestions.")
                 PrivacyRow(icon: "person.crop.circle", title: "Your DayLedger account (optional)",
                            detail: "Only if you create one: your email address and your DayLedger Pro subscription status. Everything else in DayLedger works without an account.")
             }
@@ -32,16 +32,16 @@ struct PrivacyView: View {
                            detail: "If you sign in, transactions sync to your account so they survive a new iPhone. Visits sync only if you turn on visit sync. Both are end-to-end encrypted on your iPhone before upload, with a key kept in your iCloud Keychain: DayLedger's servers store only ciphertext and can't read merchants, amounts, places or coordinates. Your preferences (such as which features are on) are synced unencrypted. Bank, Google and AI keys are never uploaded.")
                 PrivacyRow(icon: "arrow.left.arrow.right", title: "TrueLayer and your bank",
                            detail: "TrueLayer passes transactions from your bank straight to the app. Your bank password is entered on your bank's own page, never in DayLedger. When connecting or refreshing access, DayLedger's server adds the app's TrueLayer credentials to the request; it passes the access tokens through without storing or logging them.")
-                PrivacyRow(icon: "calendar.badge.plus", title: "Google Calendar",
-                           detail: "Visit entries (place, times, matching spend) are written to your DayLedger calendar in your Google account.")
+                PrivacyRow(icon: "calendar.badge.plus", title: "Your calendar",
+                           detail: "Visit entries (place, times, matching spend) are written to your DayLedger calendar: on this iPhone (and iCloud, if your calendars sync there) with Apple Calendar, or in your Google account with Google Calendar.")
                 PrivacyRow(icon: "sparkles", title: "AI provider",
-                           detail: "When you ask for suggestions, an anonymised summary is sent: place names with typical days and times, spending per category rounded to £5, and busy/free blocks. Never coordinates, addresses, account numbers, individual transactions or event titles.")
+                           detail: "When you ask for suggestions, an anonymised summary goes through DayLedger's server to Anthropic (Claude): place names with typical days and times, spending per category rounded to £5, and busy/free blocks. Never coordinates, addresses, account numbers, individual transactions or event titles. DayLedger stores neither the summary nor the answer, only how many requests you made today.")
                 PrivacyRow(icon: "xmark.shield", title: "No tracking",
                            detail: "DayLedger has no analytics and no ads, and never sells your data.")
             }
 
             Section {
-                Toggle("Also delete the DayLedger calendar from Google", isOn: $deleteGoogleCalendar)
+                Toggle("Also delete the DayLedger calendar", isOn: $deleteCalendars)
                 Button(role: .destructive) {
                     isConfirming = true
                 } label: {
@@ -54,7 +54,7 @@ struct PrivacyView: View {
                 .disabled(isErasing)
                 .accessibilityIdentifier("deleteAllData")
             } footer: {
-                Text("Deletes your DayLedger account and everything synced to it (if you're signed in), stops location logging, disconnects your banks, signs out of Google and AI, deletes every transaction and visit on this device, and clears all keys from the Keychain. An App Store subscription must be cancelled separately in Settings → Apple ID → Subscriptions. Data already held by your bank, Google or an AI provider is governed by their own policies.")
+                Text("Deletes your DayLedger account and everything synced to it (if you're signed in), stops location logging, disconnects your banks, signs out of Google, deletes every transaction and visit on this device, and clears all keys from the Keychain. An App Store subscription must be cancelled separately in Settings → Apple ID → Subscriptions. Data already held by your bank, Google or an AI provider is governed by their own policies.")
             }
         }
         .navigationTitle("Privacy & your data")
@@ -74,7 +74,7 @@ struct PrivacyView: View {
     private func erase() {
         isErasing = true
         Task {
-            let report = await eraser.eraseAll(deleteGoogleCalendar: deleteGoogleCalendar)
+            let report = await eraser.eraseAll(deleteCalendars: deleteCalendars)
             isErasing = false
             if let reason = report.abortedReason {
                 resultTitle = "Nothing was deleted"

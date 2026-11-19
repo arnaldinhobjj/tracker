@@ -12,6 +12,8 @@ public enum CalendarError: Error, Equatable, Sendable {
     /// The granted scopes don't allow this call.
     case insufficientPermissions
     case calendarNotFound
+    /// Apple Calendar: full calendar access wasn't granted (or only write-only access was).
+    case calendarAccessDenied
     case rateLimited
     case network(NetworkError)
     case api(status: Int, message: String)
