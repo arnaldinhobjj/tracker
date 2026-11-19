@@ -15,6 +15,7 @@
 		1A0109DE18741071699A1F05 /* TodayViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16513DE438FCB182CB1F68C2 /* TodayViewModel.swift */; };
 		1AB106462152997DA3533082 /* PlacesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77D3B6CAD4457813DE2BDBC5 /* PlacesView.swift */; };
 		1C8E260C0112A575BCCE39C4 /* CalendarSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2AD9B032BB6EB5A9EF6E6FF /* CalendarSyncService.swift */; };
+		1CBAA457403C8103A34B47D6 /* Log.swift in Sources */ = {isa = PBXBuildFile; fileRef = D51A94793F69A482A5EB5C34 /* Log.swift */; };
 		20D686E7CB4F55FA804E31C3 /* TransactionSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83AD3F2DDD9278FCBFCA91CD /* TransactionSyncService.swift */; };
 		28DAB1212923C36985F9CF88 /* DayLedgerWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 46B9181C4E2553F85A4752DE /* DayLedgerWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		2A61CEB0D8FE72BD80CC614E /* WelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 699299BDDF2D02F88E02C6D3 /* WelcomeView.swift */; };
@@ -38,6 +39,8 @@
 		5EAF591DC479EC9B5C3308F6 /* VisitRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4FE49223DCDCC41C1155604 /* VisitRepository.swift */; };
 		5EBE2FF6E66F6110991D6658 /* SharedModels in Frameworks */ = {isa = PBXBuildFile; productRef = 25502FEF318662A3FB589148 /* SharedModels */; };
 		5F162D32EBAD016515E83E7B /* AISettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4756F3F6A51909994567343 /* AISettingsSection.swift */; };
+		60EFEC2068D181F8C1895C51 /* SchemaVersions.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0ACF15397409BE1B934C887 /* SchemaVersions.swift */; };
+		626977E7695A8C5E81986069 /* StoredPendingDeletion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BA55690F531A77FEB5E0B13 /* StoredPendingDeletion.swift */; };
 		648146DCB8630079434A1C9C /* TransactionRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4010329A1F675703A504AD2 /* TransactionRepository.swift */; };
 		66DA5245C2AB3863949BE3CB /* CalendarSyncServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7162884E2817615EE49E1170 /* CalendarSyncServiceTests.swift */; };
 		6825174E7E8D9CE3745FA585 /* EmailAuthForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8299B802CC5C696C934B8B3B /* EmailAuthForm.swift */; };
@@ -61,6 +64,7 @@
 		A4F1D743EE39CA4967FD44E3 /* AppConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18906B2BD101695C7EE0DC98 /* AppConfiguration.swift */; };
 		A522419CD34B7388BD8032F0 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = D6ECD22C48F909FE57E0E74E /* PrivacyInfo.xcprivacy */; };
 		A53CC785DEB26B60C8BBB328 /* CloudSyncSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A33096FF42548B2E78FFBB /* CloudSyncSettingsSection.swift */; };
+		ACE268B55C0824F69B116DAF /* MetricsReporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73E8304C94421CBFB0345496 /* MetricsReporter.swift */; };
 		AE3C980139C46D7D7796051E /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 729C82223F0FEA1490B97F2D /* PrivacyInfo.xcprivacy */; };
 		B1FB04B41B437490986CB693 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76DA3A7F1999BD0455A85F96 /* RootView.swift */; };
 		BD8D35D938CBA4BB7C994F59 /* LocationLoggingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA204CCFA01BA039DD1254CA /* LocationLoggingService.swift */; };
@@ -71,9 +75,12 @@
 		D1A157987B70DA7038ABFF50 /* TransactionRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FA45C6C6FB058332677243F /* TransactionRow.swift */; };
 		D54265C7D1D90196A5B41B63 /* SpendWidgetViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB03961D1EF994797468B03A /* SpendWidgetViews.swift */; };
 		D6614DE24F10BA6B3F423100 /* DeveloperLogin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 703557938D2C04AB9CB5B891 /* DeveloperLogin.swift */; };
+		D9480AAC079F75BDD3AB42FE /* SyncCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B3D9772DC9C77D44BAF8128 /* SyncCoordinatorTests.swift */; };
 		DC8B7B02C4E4C5EA38ABE6BE /* LocationKit in Frameworks */ = {isa = PBXBuildFile; productRef = 3E1FDB930816A552D3BB51A4 /* LocationKit */; };
 		DF0CE5CE6E4D48C9D24F9256 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A6E2293177DB1C588A8412A3 /* WidgetKit.framework */; };
 		EB5CE9D5F624C35E34223232 /* DayLedgerWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B53FE2AACD9B06C366CFF6E /* DayLedgerWidgetBundle.swift */; };
+		F66B235E48C20D846AFEE991 /* PersistenceMigrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFDC8C5E949A9E294DE775AC /* PersistenceMigrationTests.swift */; };
+		F91F3E3BA205332E95B40BE6 /* SyncCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8C219160CC83242F2ACD80C /* SyncCoordinator.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -125,6 +132,7 @@
 		18906B2BD101695C7EE0DC98 /* AppConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfiguration.swift; sourceTree = "<group>"; };
 		18A7AC8888B299A4DAC59FF7 /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 		2AAF147BD459AD2BB79811B0 /* AccountSwitchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountSwitchTests.swift; sourceTree = "<group>"; };
+		2B3D9772DC9C77D44BAF8128 /* SyncCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncCoordinatorTests.swift; sourceTree = "<group>"; };
 		2B47B0093961B07CB4855A99 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		2BDACBB32BB907C9A82A1937 /* SpendProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpendProvider.swift; sourceTree = "<group>"; };
 		2D34510AB02D32675ED46C35 /* DayLedgerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayLedgerApp.swift; sourceTree = "<group>"; };
@@ -138,6 +146,7 @@
 		4FA45C6C6FB058332677243F /* TransactionRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransactionRow.swift; sourceTree = "<group>"; };
 		556E530FB17BB60AA5B63EFC /* DayLedgerKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DayLedgerKit; path = Packages/DayLedgerKit; sourceTree = SOURCE_ROOT; };
 		5A0FCB2CBDC5922D976F9EEA /* DayLedgerUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayLedgerUITests.swift; sourceTree = "<group>"; };
+		5BA55690F531A77FEB5E0B13 /* StoredPendingDeletion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoredPendingDeletion.swift; sourceTree = "<group>"; };
 		5E6BDD94DD3E0BC3307F5AAE /* WidgetPublisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetPublisher.swift; sourceTree = "<group>"; };
 		67381585BE28958806D9452D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		699299BDDF2D02F88E02C6D3 /* WelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeView.swift; sourceTree = "<group>"; };
@@ -146,6 +155,7 @@
 		7162884E2817615EE49E1170 /* CalendarSyncServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarSyncServiceTests.swift; sourceTree = "<group>"; };
 		729C82223F0FEA1490B97F2D /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		7399DCD528FEEC3A2C5505DC /* AppEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEnvironment.swift; sourceTree = "<group>"; };
+		73E8304C94421CBFB0345496 /* MetricsReporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricsReporter.swift; sourceTree = "<group>"; };
 		76DA3A7F1999BD0455A85F96 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		76FCDB8860633E672EE797D6 /* DayLedgerUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = DayLedgerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		77D3B6CAD4457813DE2BDBC5 /* PlacesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlacesView.swift; sourceTree = "<group>"; };
@@ -158,9 +168,11 @@
 		8A4AA696D8D3EADB758D8453 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
 		8F771CBF702D17B818C00142 /* DayLedger.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = DayLedger.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		930CB5B0944A4F667774EB90 /* SubscriptionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionManager.swift; sourceTree = "<group>"; };
+		A0ACF15397409BE1B934C887 /* SchemaVersions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SchemaVersions.swift; sourceTree = "<group>"; };
 		A2AD9B032BB6EB5A9EF6E6FF /* CalendarSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarSyncService.swift; sourceTree = "<group>"; };
 		A478C0784AB96E85536FE579 /* AppGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppGate.swift; sourceTree = "<group>"; };
 		A6E2293177DB1C588A8412A3 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		A8C219160CC83242F2ACD80C /* SyncCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncCoordinator.swift; sourceTree = "<group>"; };
 		B3C5E3A936929C76FA753FE6 /* UserFacingError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserFacingError.swift; sourceTree = "<group>"; };
 		B4CAB8F911900D564ACC025E /* AssistantViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantViewModel.swift; sourceTree = "<group>"; };
 		B6124A622B0AC79CF289E3E4 /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
@@ -168,7 +180,9 @@
 		BC7855C109CA947560F6C882 /* AccountSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountSettingsSection.swift; sourceTree = "<group>"; };
 		BEC8D6D1821B63AF7E9889B1 /* BackgroundRefresh.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundRefresh.swift; sourceTree = "<group>"; };
 		CEAC528800969BC163066304 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		CFDC8C5E949A9E294DE775AC /* PersistenceMigrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistenceMigrationTests.swift; sourceTree = "<group>"; };
 		D3BA7A6E88F7C7C0BE02DD6F /* AccountController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountController.swift; sourceTree = "<group>"; };
+		D51A94793F69A482A5EB5C34 /* Log.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Log.swift; sourceTree = "<group>"; };
 		D5DBD829366FB5896E903F00 /* PaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallView.swift; sourceTree = "<group>"; };
 		D6416A5CE1F6A035D5988EC7 /* CloudSyncServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudSyncServiceTests.swift; sourceTree = "<group>"; };
 		D6ECD22C48F909FE57E0E74E /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
@@ -258,7 +272,9 @@
 				E3D695265B289E6674FE02EF /* AccountTests.swift */,
 				7162884E2817615EE49E1170 /* CalendarSyncServiceTests.swift */,
 				D6416A5CE1F6A035D5988EC7 /* CloudSyncServiceTests.swift */,
+				CFDC8C5E949A9E294DE775AC /* PersistenceMigrationTests.swift */,
 				10B0FCE771623AE4206C0145 /* StubHTTPClient.swift */,
+				2B3D9772DC9C77D44BAF8128 /* SyncCoordinatorTests.swift */,
 				854A3006B3127EB42E6C1864 /* TodayViewModelTests.swift */,
 			);
 			path = DayLedgerTests;
@@ -338,6 +354,7 @@
 			isa = PBXGroup;
 			children = (
 				18906B2BD101695C7EE0DC98 /* AppConfiguration.swift */,
+				D51A94793F69A482A5EB5C34 /* Log.swift */,
 				B3C5E3A936929C76FA753FE6 /* UserFacingError.swift */,
 			);
 			path = Support;
@@ -352,7 +369,9 @@
 				A2AD9B032BB6EB5A9EF6E6FF /* CalendarSyncService.swift */,
 				FDD568018977FC04800F44DC /* CloudSyncService.swift */,
 				BA204CCFA01BA039DD1254CA /* LocationLoggingService.swift */,
+				73E8304C94421CBFB0345496 /* MetricsReporter.swift */,
 				930CB5B0944A4F667774EB90 /* SubscriptionManager.swift */,
+				A8C219160CC83242F2ACD80C /* SyncCoordinator.swift */,
 				83AD3F2DDD9278FCBFCA91CD /* TransactionSyncService.swift */,
 				5E6BDD94DD3E0BC3307F5AAE /* WidgetPublisher.swift */,
 			);
@@ -404,6 +423,8 @@
 			isa = PBXGroup;
 			children = (
 				36D34223FEF15C3E8632C1F4 /* PersistenceController.swift */,
+				A0ACF15397409BE1B934C887 /* SchemaVersions.swift */,
+				5BA55690F531A77FEB5E0B13 /* StoredPendingDeletion.swift */,
 				7CA0A06C429480E14C93736A /* StoredTransaction.swift */,
 				1286669E58BDC7A212FD12DD /* StoredVisit.swift */,
 				F4010329A1F675703A504AD2 /* TransactionRepository.swift */,
@@ -648,15 +669,20 @@
 				3C3F130993C0078CECC596DD /* EmailAuthView.swift in Sources */,
 				BD8D35D938CBA4BB7C994F59 /* LocationLoggingService.swift in Sources */,
 				84E0B705BD0B49884BD30E89 /* LocationSettingsSection.swift in Sources */,
+				1CBAA457403C8103A34B47D6 /* Log.swift in Sources */,
+				ACE268B55C0824F69B116DAF /* MetricsReporter.swift in Sources */,
 				48E65CC0CF98521C151B274B /* PaywallView.swift in Sources */,
 				0DBD15BA012D2217EBD8CE9C /* PersistenceController.swift in Sources */,
 				1AB106462152997DA3533082 /* PlacesView.swift in Sources */,
 				71BA8EDB47081E38BEC4DB06 /* PrivacyView.swift in Sources */,
 				B1FB04B41B437490986CB693 /* RootView.swift in Sources */,
+				60EFEC2068D181F8C1895C51 /* SchemaVersions.swift in Sources */,
 				9D8E64F42B8E894B9119D1FE /* SettingsView.swift in Sources */,
+				626977E7695A8C5E81986069 /* StoredPendingDeletion.swift in Sources */,
 				C5173D20404200791D70A453 /* StoredTransaction.swift in Sources */,
 				75AA87CB75B0AA638934501E /* StoredVisit.swift in Sources */,
 				710C5BDAD7234D2FF6023BDA /* SubscriptionManager.swift in Sources */,
+				F91F3E3BA205332E95B40BE6 /* SyncCoordinator.swift in Sources */,
 				C4E30C037376A83E028BFE2E /* TodayView.swift in Sources */,
 				1A0109DE18741071699A1F05 /* TodayViewModel.swift in Sources */,
 				648146DCB8630079434A1C9C /* TransactionRepository.swift in Sources */,
@@ -677,7 +703,9 @@
 				A108D191ECF2A03B14BCE7D3 /* AccountTests.swift in Sources */,
 				66DA5245C2AB3863949BE3CB /* CalendarSyncServiceTests.swift in Sources */,
 				2B00F36888B39DE4034E6A14 /* CloudSyncServiceTests.swift in Sources */,
+				F66B235E48C20D846AFEE991 /* PersistenceMigrationTests.swift in Sources */,
 				03CF7091961A96BCDBE5F815 /* StubHTTPClient.swift in Sources */,
+				D9480AAC079F75BDD3AB42FE /* SyncCoordinatorTests.swift in Sources */,
 				35C224C87A1D75C73064C1B4 /* TodayViewModelTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
