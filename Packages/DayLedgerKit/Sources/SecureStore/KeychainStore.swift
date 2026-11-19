@@ -7,22 +7,45 @@ public enum KeychainError: Error, Equatable, Sendable {
 
 /// Generic-password Keychain storage.
 ///
-/// Items use `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` so background location
+/// By default items use `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` so background location
 /// wake-ups can refresh tokens while the phone is locked, and nothing syncs to iCloud
 /// or is restored onto another device.
+///
+/// A `synchronizable` store (used only for end-to-end sync keys) keeps items in iCloud Keychain,
+/// so the user's other devices receive them. iCloud Keychain is end-to-end encrypted by Apple.
 public final class KeychainStore: SecureStoring, @unchecked Sendable {
     private let service: String
+    private let synchronizable: Bool
 
-    public init(service: String = "app.dayledger.secure") {
+    public init(service: String = "app.dayledger.secure", synchronizable: Bool = false) {
         self.service = service
+        self.synchronizable = synchronizable
+    }
+
+    /// The service of the iCloud-synchronised store holding sync keys.
+    public static let syncKeyService = "app.dayledger.synckeys"
+
+    private var accessibility: CFString {
+        synchronizable ? kSecAttrAccessibleAfterFirstUnlock : kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+    }
+
+    /// The default store's queries are unchanged from earlier versions (no synchronizable
+    /// attribute), so existing items keep matching exactly as before.
+    private func baseQuery() -> [String: Any] {
+        var query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+        ]
+        if synchronizable {
+            query[kSecAttrSynchronizable as String] = true
+        }
+        return query
     }
 
     private func query(for key: String) -> [String: Any] {
-        [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: key,
-        ]
+        var query = baseQuery()
+        query[kSecAttrAccount as String] = key
+        return query
     }
 
     public func data(for key: String) throws -> Data? {
@@ -41,7 +64,7 @@ public final class KeychainStore: SecureStoring, @unchecked Sendable {
     public func set(_ data: Data, for key: String) throws {
         let attributes: [String: Any] = [
             kSecValueData as String: data,
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+            kSecAttrAccessible as String: accessibility,
         ]
         let status = SecItemUpdate(query(for: key) as CFDictionary, attributes as CFDictionary)
         switch status {
@@ -65,11 +88,7 @@ public final class KeychainStore: SecureStoring, @unchecked Sendable {
     }
 
     public func removeAll() throws {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-        ]
-        let status = SecItemDelete(query as CFDictionary)
+        let status = SecItemDelete(baseQuery() as CFDictionary)
         guard status == errSecSuccess || status == errSecItemNotFound else {
             throw KeychainError.unexpectedStatus(status)
         }

@@ -1,4 +1,6 @@
 import AccountKit
+import BankKit
+import SecureStore
 import XCTest
 @testable import DayLedger
 
@@ -88,31 +90,59 @@ final class EmailAuthFormTests: XCTestCase {
 }
 
 final class AppGateTests: XCTestCase {
-    private func state(uiTesting: Bool = false, developer: Bool = false, configured: Bool = true, debug: Bool = false,
-                       signedIn: Bool = false, entitlement: AppGate.Entitlement = .unknown) -> AppGateState {
-        AppGate.state(isUITesting: uiTesting, isDeveloperAccount: developer, isConfigured: configured, isDebugBuild: debug,
-                      isSignedIn: signedIn, entitlement: entitlement)
+    private func access(uiTesting: Bool = false, developer: Bool = false, configured: Bool = true, debug: Bool = false,
+                        signedIn: Bool = false, entitlement: AppGate.Entitlement = .unknown) -> ProAccess {
+        AppGate.proAccess(isUITesting: uiTesting, isDeveloperAccount: developer, isConfigured: configured, isDebugBuild: debug,
+                          isSignedIn: signedIn, entitlement: entitlement)
     }
 
-    func testUITestsSkipAccounts() {
-        XCTAssertEqual(state(uiTesting: true, configured: false), .main)
-        XCTAssertEqual(state(uiTesting: true, signedIn: false), .main)
+    func testUITestsHaveNoAccountsButReachTheOptInFlows() {
+        XCTAssertEqual(access(uiTesting: true, configured: false), .available)
+        XCTAssertEqual(access(uiTesting: true, signedIn: false), .available)
     }
 
-    func testSignedOut() {
-        XCTAssertEqual(state(configured: true), .signedOut)
-        XCTAssertEqual(state(configured: false, debug: true), .signedOut, "Debug builds show the login screens without a backend")
-        XCTAssertEqual(state(configured: false, debug: false), .accountsNotConfigured)
+    func testSignedOutUsersAreAskedToSignInOnlyForPro() {
+        XCTAssertEqual(access(configured: true), .signInRequired)
+        XCTAssertEqual(access(configured: false, debug: true), .signInRequired, "Debug builds offer the login screens without a backend")
+        XCTAssertEqual(access(configured: false, debug: false), .unavailable, "Release without a backend: no Pro, the app still works")
     }
 
     func testSignedInFollowsEntitlement() {
-        XCTAssertEqual(state(signedIn: true, entitlement: .unknown), .checkingSubscription)
-        XCTAssertEqual(state(signedIn: true, entitlement: .notEntitled), .paywall)
-        XCTAssertEqual(state(signedIn: true, entitlement: .entitled), .main)
+        XCTAssertEqual(access(signedIn: true, entitlement: .unknown), .checking)
+        XCTAssertEqual(access(signedIn: true, entitlement: .notEntitled), .subscriptionRequired)
+        XCTAssertEqual(access(signedIn: true, entitlement: .entitled), .available)
     }
 
-    func testDeveloperAccountSkipsPaywall() {
-        XCTAssertEqual(state(developer: true, configured: false, debug: true, signedIn: true, entitlement: .notEntitled), .main)
+    func testDeveloperAccountIsAlwaysPro() {
+        XCTAssertEqual(access(developer: true, configured: false, debug: true, signedIn: true, entitlement: .notEntitled), .available)
+    }
+
+    func testTheRightSheetUnlocksPro() {
+        XCTAssertEqual(AppGate.sheet(toUnlock: .signInRequired), .signIn)
+        XCTAssertEqual(AppGate.sheet(toUnlock: .subscriptionRequired), .paywall)
+        XCTAssertEqual(AppGate.sheet(toUnlock: .checking), .paywall)
+        XCTAssertNil(AppGate.sheet(toUnlock: .available))
+        XCTAssertNil(AppGate.sheet(toUnlock: .unavailable))
+    }
+
+    /// Local-first: a signed-out user gets the app, and asking for Pro opens sign-in.
+    @MainActor
+    func testSignedOutUserGetsTheAppAndCanAskForPro() {
+        let environment = AppEnvironment(
+            configuration: AppConfiguration(trueLayerClientID: "", trueLayerClientSecret: "", trueLayerEnvironment: "sandbox",
+                                            googleClientID: "", appGroupID: "", supabaseURL: "https://abc.supabase.co", supabaseAnonKey: "anon"),
+            modelContainer: PersistenceController.makeContainer(appGroupID: "", inMemory: true),
+            defaults: UserDefaults(suiteName: "gate.\(UUID().uuidString)")!,
+            secureStore: InMemorySecureStore(),
+            bankService: MockBankService(connected: true),
+            isUITesting: false,
+            auth: MockAuthService(isConfigured: true)
+        )
+        XCTAssertFalse(environment.account.isSignedIn)
+        XCTAssertEqual(environment.proAccess, .signInRequired)
+        XCTAssertNil(environment.accountSheet, "Nothing is presented until the user asks")
+        environment.requestPro()
+        XCTAssertEqual(environment.accountSheet, .signIn)
     }
 
     @MainActor
@@ -129,4 +159,33 @@ final class AppGateTests: XCTestCase {
         let account = AccountController(auth: MockAuthService())
         XCTAssertFalse(account.handleOpenURL(URL(string: "dayledger://truelayer-callback?code=abc")!))
     }
+}
+
+/// TrueLayer's client secret must never be needed outside Debug: the backend exchanges tokens.
+@MainActor
+final class TokenExchangerSelectionTests: XCTestCase {
+    private func configuration(secret: String, supabaseURL: String) -> AppConfiguration {
+        AppConfiguration(trueLayerClientID: "sandbox-1", trueLayerClientSecret: secret, trueLayerEnvironment: "sandbox",
+                         googleClientID: "", appGroupID: "", supabaseURL: supabaseURL, supabaseAnonKey: "anon")
+    }
+
+    func testUsesTheBackendWhenNoSecretIsConfigured() {
+        let exchanger = AppEnvironment.makeTokenExchanger(configuration: configuration(secret: "", supabaseURL: "https://abc.supabase.co"),
+                                                          trueLayer: TrueLayerConfiguration(clientID: "sandbox-1"))
+        XCTAssertTrue(exchanger is BackendTrueLayerTokenExchanger)
+    }
+
+    func testWithoutBackendOrSecretBankConnectionsSayNotConfigured() {
+        let exchanger = AppEnvironment.makeTokenExchanger(configuration: configuration(secret: "", supabaseURL: ""),
+                                                          trueLayer: TrueLayerConfiguration(clientID: "sandbox-1"))
+        XCTAssertTrue(exchanger is UnavailableTrueLayerTokenExchanger)
+    }
+
+    #if DEBUG
+    func testDebugBuildsMayUseALocalSandboxSecret() {
+        let exchanger = AppEnvironment.makeTokenExchanger(configuration: configuration(secret: "s", supabaseURL: "https://abc.supabase.co"),
+                                                          trueLayer: TrueLayerConfiguration(clientID: "sandbox-1"))
+        XCTAssertTrue(exchanger is DirectTrueLayerTokenExchanger)
+    }
+    #endif
 }

@@ -95,3 +95,91 @@ final class TrueLayerAuthTests: XCTestCase {
         XCTAssertEqual(connections.all().first?.needsReconnect, true)
     }
 }
+
+/// The production path: tokens are exchanged by the `truelayer-token` Edge Function, which holds
+/// the client secret. The app must never send one.
+final class BackendTrueLayerTokenExchangerTests: XCTestCase {
+    let endpoint = URL(string: "https://abc.supabase.co/functions/v1/truelayer-token")!
+    let now = Date(timeIntervalSince1970: 1_000_000)
+
+    private func makeExchanger(_ http: StubHTTPClient) -> BackendTrueLayerTokenExchanger {
+        let now = self.now
+        return BackendTrueLayerTokenExchanger(endpoint: endpoint, headers: { ["apikey": "anon", "Authorization": "Bearer anon"] },
+                                              http: http, now: { now })
+    }
+
+    private func jsonBody(_ request: URLRequest?) throws -> [String: String] {
+        try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap(request?.httpBody)) as? [String: String])
+    }
+
+    func testExchangeSendsOnlyTheCodeAndParsesTokens() async throws {
+        let http = StubHTTPClient()
+        http.on("/functions/v1/truelayer-token", body: #"{"access_token":"a1","refresh_token":"r1","expires_in":3600,"token_type":"Bearer"}"#)
+
+        let tokens = try await makeExchanger(http).exchange(code: "code-123")
+
+        XCTAssertEqual(tokens, OAuthTokens(accessToken: "a1", refreshToken: "r1", expiresAt: now.addingTimeInterval(3600)))
+        let request = http.requests.last
+        XCTAssertEqual(request?.httpMethod, "POST")
+        XCTAssertEqual(request?.url, endpoint)
+        XCTAssertEqual(request?.value(forHTTPHeaderField: "apikey"), "anon")
+        XCTAssertEqual(request?.value(forHTTPHeaderField: "Content-Type"), "application/json")
+        XCTAssertEqual(try jsonBody(request), ["grant_type": "authorization_code", "code": "code-123"])
+    }
+
+    func testRefreshKeepsTheOldRefreshTokenWhenNotRotated() async throws {
+        let http = StubHTTPClient()
+        http.on("/functions/v1/truelayer-token", body: #"{"access_token":"a2","expires_in":60}"#)
+
+        let tokens = try await makeExchanger(http).refresh(OAuthTokens(accessToken: "a1", refreshToken: "r1", expiresAt: .distantPast))
+
+        XCTAssertEqual(tokens.accessToken, "a2")
+        XCTAssertEqual(tokens.refreshToken, "r1")
+        XCTAssertEqual(try jsonBody(http.requests.last), ["grant_type": "refresh_token", "refresh_token": "r1"])
+        let body = String(data: try XCTUnwrap(http.requests.last?.httpBody), encoding: .utf8) ?? ""
+        XCTAssertFalse(body.contains("client_secret"), "The app never sends a client secret")
+    }
+
+    func testErrorsMapToBankErrors() async {
+        let cases: [(Int, String, BankError)] = [
+            (400, #"{"error":"invalid_grant"}"#, .reconnectRequired(connectionName: nil)),
+            (400, #"{"error":"invalid_client"}"#, .notConfigured),
+            (404, #"{"code":"NOT_FOUND","message":"Requested function was not found"}"#, .notConfigured),
+            (401, #"{"msg":"Invalid JWT"}"#, .notConfigured),
+            (429, #"{"error":"invalid_request"}"#, .rateLimited),
+            (400, #"{"error":"unsupported_grant_type","message":"x"}"#, .providerError("unsupported_grant_type")),
+            (502, #"{"error":"upstream_unavailable","message":"Couldn't reach TrueLayer."}"#,
+             .network(.http(status: 502, body: #"{"error":"upstream_unavailable","message":"Couldn't reach TrueLayer."}"#))),
+        ]
+        for (status, body, expected) in cases {
+            let http = StubHTTPClient()
+            http.on("/functions/v1/truelayer-token", status: status, body: body)
+            do {
+                _ = try await makeExchanger(http).refresh(OAuthTokens(accessToken: "a", refreshToken: "r", expiresAt: .distantPast))
+                XCTFail("Expected an error for \(status) \(body)")
+            } catch {
+                XCTAssertEqual(error as? BankError, expected, "\(status) \(body)")
+            }
+        }
+    }
+
+    func testMissingRefreshTokenNeedsReconnectWithoutCallingTheBackend() async {
+        let http = StubHTTPClient()
+        do {
+            _ = try await makeExchanger(http).refresh(OAuthTokens(accessToken: "a", refreshToken: nil, expiresAt: .distantPast))
+            XCTFail("Expected an error")
+        } catch {
+            XCTAssertEqual(error as? BankError, .reconnectRequired(connectionName: nil))
+        }
+        XCTAssertTrue(http.requests.isEmpty)
+    }
+
+    func testUnavailableExchangerSaysNotConfigured() async {
+        do {
+            _ = try await UnavailableTrueLayerTokenExchanger().exchange(code: "c")
+            XCTFail("Expected an error")
+        } catch {
+            XCTAssertEqual(error as? BankError, .notConfigured)
+        }
+    }
+}

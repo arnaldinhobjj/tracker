@@ -37,6 +37,9 @@ public enum SecureStoreKey {
     public static let supabaseSession = "supabase.session"
     /// The PKCE verifier for an emailed sign-up or password-reset link we are waiting for.
     public static let supabasePendingEmailLink = "supabase.pendingEmailLink"
+    /// An end-to-end sync key, stored in the iCloud-synchronised store. Named by key id as well as
+    /// user, so two devices that each created a key can never overwrite one another through iCloud.
+    public static func syncKey(userID: UUID, keyID: String) -> String { "sync.key.\(userID.uuidString.lowercased()).\(keyID)" }
 }
 
 /// In-memory store for tests, previews and UI tests.

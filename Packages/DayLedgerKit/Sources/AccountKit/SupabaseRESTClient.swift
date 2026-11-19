@@ -66,6 +66,45 @@ public final class SupabaseRESTClient: @unchecked Sendable {
         }
     }
 
+    /// Hard-deletes every row the user has in `table`: `DELETE /rest/v1/<table>?user_id=eq.<uid>`.
+    /// Allowed without a subscription (removing visit sync, starting encryption over).
+    public func deleteAll(from table: String, userID: UUID) async throws {
+        let url = try configuration.endpoint("rest/v1/\(table)", query: [
+            URLQueryItem(name: "user_id", value: "eq.\(userID.uuidString.lowercased())"),
+        ])
+        _ = try await authorised(url: url, method: "DELETE", body: nil, headers: ["Prefer": "return=minimal"])
+    }
+
+    // MARK: Encryption key registry (`public.sync_keys`)
+
+    /// The id of the key the account's rows are encrypted with, or nil when none is registered.
+    public func fetchSyncKey() async throws -> SyncKeyRecord? {
+        let url = try configuration.endpoint("rest/v1/sync_keys", query: [
+            URLQueryItem(name: "select", value: "user_id,key_id"),
+            URLQueryItem(name: "limit", value: "1"),
+        ])
+        let data = try await authorised(url: url, method: "GET", body: nil)
+        do {
+            return try JSONDecoder().decode([SyncKeyRecord].self, from: data).first
+        } catch {
+            throw NetworkError.decoding(String(describing: error))
+        }
+    }
+
+    /// Registers a key id unless the account already has one (`ON CONFLICT DO NOTHING`), so two
+    /// devices racing to create the first key can't overwrite each other. Read back to see who won.
+    public func registerSyncKey(_ record: SyncKeyRecord) async throws {
+        let url = try configuration.endpoint("rest/v1/sync_keys", query: [URLQueryItem(name: "on_conflict", value: "user_id")])
+        let body = try JSONEncoder().encode([record])
+        _ = try await authorised(url: url, method: "POST", body: body, headers: [
+            "Prefer": "resolution=ignore-duplicates,return=minimal",
+        ])
+    }
+
+    public func deleteSyncKey(userID: UUID) async throws {
+        try await deleteAll(from: "sync_keys", userID: userID)
+    }
+
     /// One page of rows changed after `cursor`, oldest first:
     /// `GET /rest/v1/<table>?select=*&updated_at=gt.<cursor>&order=updated_at.asc&limit=500`
     /// (with `id` as a tie-breaker when the cursor has one).

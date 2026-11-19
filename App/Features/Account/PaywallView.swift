@@ -1,16 +1,33 @@
 import StoreKit
 import SwiftUI
 
-/// Shown to signed-in users without DayLedger Pro.
+/// DayLedger Pro, presented as a sheet to signed-in users without a subscription. Everything that
+/// works on the device alone stays free.
 struct PaywallView: View {
     let subscriptions: SubscriptionManager
     let account: AccountController
     let configuration: AppConfiguration
+    /// Closes the sheet. Nil when not presented as a sheet.
+    var onClose: (() -> Void)?
 
     @State private var isSigningOut = false
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
+        NavigationStack {
+            content
+                .toolbar {
+                    if let onClose {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Not now", action: onClose)
+                                .accessibilityIdentifier("closePaywall")
+                        }
+                    }
+                }
+        }
+    }
+
+    private var content: some View {
         ScrollView {
             VStack(spacing: 28) {
                 header
@@ -49,7 +66,7 @@ struct PaywallView: View {
                 .accessibilityHidden(true)
             Text("DayLedger Pro")
                 .font(.largeTitle.bold())
-            Text("Everything DayLedger does, on all your devices.")
+            Text("Your ledger on all your devices, end-to-end encrypted, plus AI suggestions. Everything else stays free.")
                 .font(.title3)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -58,10 +75,9 @@ struct PaywallView: View {
 
     private var benefits: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Benefit(icon: "sterlingsign.circle", title: "Today's spending at a glance", detail: "Read-only bank connection, sorted into categories automatically.")
-            Benefit(icon: "mappin.and.ellipse", title: "Places matched to purchases", detail: "See where you were when you spent, without typing anything.")
-            Benefit(icon: "calendar", title: "A diary in your calendar", detail: "Visits and spending written to your own DayLedger calendar.")
-            Benefit(icon: "icloud", title: "Synced and backed up", detail: "Your ledger follows you to a new iPhone. Bank and Google keys stay on this device.")
+            Benefit(icon: "lock.icloud", title: "Synced and backed up, privately", detail: "Your transactions follow you to a new iPhone, end-to-end encrypted: only your devices can read them, not DayLedger. Visits too, if you choose.")
+            Benefit(icon: "sparkles", title: "AI suggestions", detail: "Events proposed from your routine, using an anonymised summary. Nothing is added until you approve it.")
+            Benefit(icon: "checkmark.circle", title: "Free without Pro", detail: "Today's spending, widgets, places and your calendar diary work on this iPhone without an account.")
         }
         .padding(20)
         .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))

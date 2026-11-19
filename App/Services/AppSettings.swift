@@ -43,7 +43,17 @@ final class AppSettings {
         }
     }
 
+    /// Upload visits (end-to-end encrypted) to the DayLedger account. Account-wide (synced like
+    /// the settings above), and off until the user turns it on: visits are where you've been.
+    var visitSyncEnabled: Bool {
+        didSet {
+            defaults.set(visitSyncEnabled, forKey: Keys.visitSync)
+            touch()
+        }
+    }
+
     private enum Keys {
+        static let visitSync = "settings.visitSync"
         static let ai = "settings.aiAssistant"
         static let location = "settings.locationLogging"
         static let calendar = "settings.calendarWriting"
@@ -68,7 +78,8 @@ final class AppSettings {
     /// The settings as stored in `user_settings.settings`.
     var synced: SyncedSettings {
         SyncedSettings(locationLogging: locationLoggingEnabled, calendarWriting: calendarWritingEnabled,
-                       onlyNamedPlaces: onlyNamedPlaces, minimumVisitMinutes: minimumVisitMinutes, aiAssistant: aiAssistantEnabled)
+                       onlyNamedPlaces: onlyNamedPlaces, minimumVisitMinutes: minimumVisitMinutes, aiAssistant: aiAssistantEnabled,
+                       visitSync: visitSyncEnabled)
     }
 
     /// Applies settings from another device. Location logging is deliberately not applied: it
@@ -80,6 +91,7 @@ final class AppSettings {
         if onlyNamedPlaces != remote.onlyNamedPlaces { onlyNamedPlaces = remote.onlyNamedPlaces }
         if minimumVisitMinutes != remote.minimumVisitMinutes { minimumVisitMinutes = max(1, remote.minimumVisitMinutes) }
         if aiAssistantEnabled != remote.aiAssistant { aiAssistantEnabled = remote.aiAssistant }
+        if visitSyncEnabled != remote.visitSync { visitSyncEnabled = remote.visitSync }
     }
 
     init(defaults: UserDefaults) {
@@ -90,6 +102,7 @@ final class AppSettings {
         onlyNamedPlaces = defaults.object(forKey: Keys.namedOnly) as? Bool ?? true
         minimumVisitMinutes = defaults.object(forKey: Keys.minimumMinutes) as? Int ?? 5
         aiAssistantEnabled = defaults.object(forKey: Keys.ai) as? Bool ?? false
+        visitSyncEnabled = defaults.object(forKey: Keys.visitSync) as? Bool ?? false
     }
 
     func resetToDefaults() {
@@ -98,5 +111,6 @@ final class AppSettings {
         onlyNamedPlaces = true
         minimumVisitMinutes = 5
         aiAssistantEnabled = false
+        visitSyncEnabled = false
     }
 }

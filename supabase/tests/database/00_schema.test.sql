@@ -2,7 +2,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(17);
+select plan(18);
 
 select has_table('public', 'profiles', 'profiles exists');
 select has_table('public', 'transactions', 'transactions exists');
@@ -10,6 +10,7 @@ select has_table('public', 'visits', 'visits exists');
 select has_table('public', 'user_settings', 'user_settings exists');
 select has_table('public', 'subscriptions', 'subscriptions exists');
 select has_table('public', 'app_store_notifications', 'app_store_notifications exists');
+select has_table('public', 'sync_keys', 'sync_keys exists');
 
 select is(
   (select count(*)::int

@@ -56,9 +56,9 @@
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Allow "Always" so DayLedger can log visits automatically when you arrive at or leave a place, even when the app is closed. Location data stays on your iPhone.</string>
+	<string>Allow "Always" so DayLedger can log visits automatically when you arrive at or leave a place, even when the app is closed. Visits are stored on your iPhone and are only uploaded, end-to-end encrypted, if you turn on visit sync.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>DayLedger logs the places you visit (not continuous GPS) so it can match them with your spending and add them to your DayLedger calendar.</string>
+	<string>DayLedger logs the places you visit (not continuous GPS) so it can match them with your spending and add them to your DayLedger calendar. Visits are stored on your iPhone and are only uploaded, end-to-end encrypted, if you turn on visit sync.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

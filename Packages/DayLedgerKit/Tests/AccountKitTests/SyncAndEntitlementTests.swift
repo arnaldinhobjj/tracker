@@ -59,47 +59,218 @@ final class SyncRowTests: XCTestCase {
         try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(value)) as? [String: Any])
     }
 
-    func testTransactionRowUsesContractColumns() throws {
-        let row = TransactionSyncRow(userID: userID, id: "acc:tx1", accountID: "acc", merchant: "Costa", rawDescription: "COSTA",
-                                 amountMinor: 340, currency: "GBP", direction: "debit", bankCategory: "PURCHASE", category: "coffee",
-                                 occurredAt: Date(timeIntervalSince1970: 0), hasTime: true, isPending: false)
+    private let key = SyncKey(data: Data(repeating: 7, count: 32))!
+
+    private func content() -> TransactionSyncContent {
+        TransactionSyncContent(accountID: "acc", merchant: "Costa", rawDescription: "COSTA", amountMinor: 340, currency: "GBP",
+                               direction: "debit", bankCategory: "PURCHASE", category: "coffee",
+                               occurredAt: Date(timeIntervalSince1970: 0), hasTime: true, isPending: false)
+    }
+
+    func testTransactionRowUploadsOnlyCiphertextAndNullsEveryPlaintextColumn() throws {
+        let row = try TransactionSyncRow(userID: userID, id: "acc:tx1", content: content()).sealing(with: key)
         let json = try keys(row)
-        XCTAssertEqual(Set(json.keys), ["user_id", "id", "account_id", "merchant", "raw_description", "amount_minor", "currency",
-                                        "direction", "bank_category", "category", "occurred_at", "has_time", "is_pending", "deleted_at"])
+        XCTAssertEqual(Set(json.keys), ["user_id", "id", "key_id", "payload", "deleted_at", "account_id", "merchant", "raw_description",
+                                        "amount_minor", "currency", "direction", "bank_category", "category", "occurred_at",
+                                        "has_time", "is_pending"])
         XCTAssertNil(json["updated_at"], "updated_at belongs to the server trigger")
-        XCTAssertTrue(json["deleted_at"] is NSNull, "Nulls are explicit so every object in a batch has the same keys")
+        for column in ["account_id", "merchant", "raw_description", "amount_minor", "currency", "direction", "bank_category",
+                       "category", "occurred_at", "has_time", "is_pending", "deleted_at"] {
+            XCTAssertTrue(json[column] is NSNull, "\(column) must be an explicit null (erases legacy plaintext)")
+        }
         XCTAssertEqual(json["user_id"] as? String, userID.uuidString.lowercased())
-        XCTAssertEqual(json["occurred_at"] as? String, "1970-01-01T00:00:00.000Z")
-        XCTAssertEqual(json["amount_minor"] as? Int, 340)
+        XCTAssertEqual(json["key_id"] as? String, key.id)
+        let payload = try XCTUnwrap(json["payload"] as? String)
+        XCTAssertTrue(payload.hasPrefix("v1."))
+        let text = String(data: try JSONEncoder().encode(row), encoding: .utf8) ?? ""
+        XCTAssertFalse(text.contains("Costa") || text.contains("COSTA") || text.contains("340"), "No plaintext leaves the device")
     }
 
-    func testVisitRowUsesContractColumns() throws {
-        let row = VisitSyncRow(userID: userID, id: "v1", arrival: Date(timeIntervalSince1970: 0), departure: nil, latitude: 51.5, longitude: -0.1,
-                           placeName: "Costa", placeCategory: nil, isNamedPlace: true, isResolved: true,
-                           calendarEventID: nil, calendarContentHash: nil, calendarSyncedAt: nil)
-        let json = try keys(row)
-        XCTAssertEqual(Set(json.keys), ["user_id", "id", "arrival", "departure", "latitude", "longitude", "place_name", "place_category",
-                                        "is_named_place", "is_resolved", "calendar_event_id", "calendar_content_hash",
-                                        "calendar_synced_at", "deleted_at"])
+    func testUnsealedRowsCannotBeEncoded() {
+        XCTAssertThrowsError(try JSONEncoder().encode(TransactionSyncRow(userID: userID, id: "t", content: content())))
+        let visit = VisitSyncRow(userID: userID, id: "v1", content: VisitSyncContent(
+            arrival: Date(), departure: nil, latitude: 51.5, longitude: -0.1, placeName: "Costa", placeCategory: nil,
+            isNamedPlace: true, isResolved: true))
+        XCTAssertThrowsError(try JSONEncoder().encode(visit))
     }
 
-    func testSettingsRowAndDecodingServerRows() throws {
-        let settings = SyncedSettings(locationLogging: true, calendarWriting: false, onlyNamedPlaces: true, minimumVisitMinutes: 10, aiAssistant: false)
-        let json = try keys(UserSettingsSyncRow(userID: userID, settings: settings))
-        XCTAssertEqual(Set(json.keys), ["user_id", "settings"])
-        let inner = try XCTUnwrap(json["settings"] as? [String: Any])
-        XCTAssertEqual(Set(inner.keys), ["locationLogging", "calendarWriting", "onlyNamedPlaces", "minimumVisitMinutes", "aiAssistant"])
+    func testVisitRowRoundTripsThroughTheServerEncrypted() throws {
+        let original = VisitSyncContent(arrival: Date(timeIntervalSince1970: 1_000), departure: Date(timeIntervalSince1970: 2_000),
+                                        latitude: 51.5, longitude: -0.1, placeName: "Costa", placeCategory: "cafe",
+                                        isNamedPlace: true, isResolved: true)
+        let sealed = try VisitSyncRow(userID: userID, id: "v1", content: original).sealing(with: key)
+        var json = try keys(sealed)
+        XCTAssertEqual(Set(json.keys), ["user_id", "id", "key_id", "payload", "deleted_at", "arrival", "departure", "latitude",
+                                        "longitude", "place_name", "place_category", "is_named_place", "is_resolved",
+                                        "calendar_event_id", "calendar_content_hash", "calendar_synced_at"])
+        XCTAssertTrue(json["latitude"] is NSNull)
+        // What the server sends back.
+        json["updated_at"] = "2026-11-18T09:00:00.123456+00:00"
+        let pulled = try JSONDecoder().decode(VisitSyncRow.self, from: JSONSerialization.data(withJSONObject: json))
+        XCTAssertNil(pulled.content, "Encrypted until opened")
+        XCTAssertFalse(pulled.isLegacyPlaintext)
+        XCTAssertEqual(try pulled.opening(with: key).content, original)
+    }
 
+    func testLegacyPlaintextRowsAreStillReadAndFlagged() throws {
         let server = #"""
         {"user_id":"6f9619ff-8b86-d011-b42d-00c04fc964ff","id":"acc:tx1","account_id":"acc","merchant":"Costa","raw_description":"COSTA",
          "amount_minor":340,"currency":"GBP","direction":"debit","bank_category":"PURCHASE","category":"coffee",
-         "occurred_at":"2026-11-18T08:30:00+00:00","has_time":true,"is_pending":false,
+         "occurred_at":"2026-11-18T08:30:00+00:00","has_time":true,"is_pending":false,"key_id":null,"payload":null,
          "updated_at":"2026-11-18T09:00:00.123456+00:00","deleted_at":"2026-11-18T09:00:00.123456+00:00"}
         """#
         let row = try JSONDecoder().decode(TransactionSyncRow.self, from: Data(server.utf8))
         XCTAssertEqual(row.userID, userID)
         XCTAssertEqual(row.updatedAt, "2026-11-18T09:00:00.123456+00:00", "Cursor text is kept exactly")
         XCTAssertNotNil(row.deletedAt)
+        XCTAssertTrue(row.isLegacyPlaintext)
+        XCTAssertEqual(row.content?.merchant, "Costa")
+        XCTAssertEqual(row.content?.amountMinor, 340)
+        XCTAssertEqual(try row.opening(with: key), row, "Nothing to decrypt")
+
+        let legacyVisit = #"{"user_id":"6f9619ff-8b86-d011-b42d-00c04fc964ff","id":"v1","arrival":"2026-11-18T08:00:00Z","departure":null,"latitude":51.5,"longitude":-0.1,"place_name":"Costa","place_category":null,"is_named_place":true,"is_resolved":true,"calendar_event_id":"x","calendar_content_hash":null,"calendar_synced_at":null,"updated_at":"2026-11-18T09:00:00+00:00","deleted_at":null}"#
+        let visit = try JSONDecoder().decode(VisitSyncRow.self, from: Data(legacyVisit.utf8))
+        XCTAssertTrue(visit.isLegacyPlaintext)
+        XCTAssertEqual(visit.content?.placeName, "Costa")
+    }
+
+    func testSettingsRowIncludesVisitSyncAndOlderRowsReadAsOff() throws {
+        let settings = SyncedSettings(locationLogging: true, calendarWriting: false, onlyNamedPlaces: true, minimumVisitMinutes: 10,
+                                      aiAssistant: false, visitSync: true)
+        let json = try keys(UserSettingsSyncRow(userID: userID, settings: settings))
+        XCTAssertEqual(Set(json.keys), ["user_id", "settings"])
+        let inner = try XCTUnwrap(json["settings"] as? [String: Any])
+        XCTAssertEqual(Set(inner.keys), ["locationLogging", "calendarWriting", "onlyNamedPlaces", "minimumVisitMinutes", "aiAssistant", "visitSync"])
+
+        let old = try JSONDecoder().decode(SyncedSettings.self, from: Data(#"{"locationLogging":true,"aiAssistant":true}"#.utf8))
+        XCTAssertFalse(old.visitSync, "Settings from older versions never turn visit sync on")
+    }
+}
+
+final class SyncCipherTests: XCTestCase {
+    let userID = UUID(uuidString: "6F9619FF-8B86-D011-B42D-00C04FC964FF")!
+
+    func testKeyIDIsAStableFingerprint() throws {
+        let key = try XCTUnwrap(SyncKey(data: Data(repeating: 1, count: 32)))
+        XCTAssertEqual(key.id.count, 32)
+        XCTAssertTrue(key.id.allSatisfy { "0123456789abcdef".contains($0) })
+        XCTAssertEqual(SyncKey(data: Data(repeating: 1, count: 32))?.id, key.id)
+        XCTAssertNotEqual(SyncKey(data: Data(repeating: 2, count: 32))?.id, key.id)
+        XCTAssertNil(SyncKey(data: Data(repeating: 1, count: 16)), "Only 256-bit keys")
+        XCTAssertNotEqual(SyncKey.generate(), SyncKey.generate())
+    }
+
+    func testRoundTripAndFreshNonces() throws {
+        let key = SyncKey.generate()
+        let first = try SyncCipher.seal(["merchant": "Costa"], table: "transactions", userID: userID, rowID: "t1", key: key)
+        let second = try SyncCipher.seal(["merchant": "Costa"], table: "transactions", userID: userID, rowID: "t1", key: key)
+        XCTAssertNotEqual(first.ciphertext, second.ciphertext, "Random nonce per seal")
+        XCTAssertEqual(first.keyID, key.id)
+        let opened = try SyncCipher.open([String: String].self, from: first, table: "transactions", userID: userID, rowID: "t1", key: key)
+        XCTAssertEqual(opened, ["merchant": "Costa"])
+    }
+
+    func testPayloadsAreBoundToTheirRowUserAndTable() throws {
+        let key = SyncKey.generate()
+        let sealed = try SyncCipher.seal(["a": 1], table: "transactions", userID: userID, rowID: "t1", key: key)
+        let attempts: [(String, UUID, String)] = [("transactions", userID, "t2"), ("visits", userID, "t1"), ("transactions", UUID(), "t1")]
+        for (table, user, row) in attempts {
+            XCTAssertThrowsError(try SyncCipher.open([String: Int].self, from: sealed, table: table, userID: user, rowID: row, key: key)) {
+                XCTAssertEqual($0 as? SyncCryptoError, .authenticationFailed)
+            }
+        }
+    }
+
+    func testTamperingWrongKeyAndGarbageAreRejected() throws {
+        let key = SyncKey.generate()
+        var sealed = try SyncCipher.seal(["a": 1], table: "t", userID: userID, rowID: "r", key: key)
+
+        let other = SyncKey.generate()
+        XCTAssertThrowsError(try SyncCipher.open([String: Int].self, from: sealed, table: "t", userID: userID, rowID: "r", key: other)) {
+            XCTAssertEqual($0 as? SyncCryptoError, .wrongKey(expected: other.id, found: key.id))
+        }
+
+        var bytes = try XCTUnwrap(Data(base64Encoded: String(sealed.ciphertext.dropFirst(3))))
+        bytes[bytes.count - 1] ^= 0x01
+        sealed.ciphertext = "v1." + bytes.base64EncodedString()
+        XCTAssertThrowsError(try SyncCipher.open([String: Int].self, from: sealed, table: "t", userID: userID, rowID: "r", key: key)) {
+            XCTAssertEqual($0 as? SyncCryptoError, .authenticationFailed)
+        }
+
+        for garbage in ["", "v1.", "v1.not-base64!", "v2.AAAA"] {
+            let payload = SealedPayload(keyID: key.id, ciphertext: garbage)
+            XCTAssertThrowsError(try SyncCipher.open([String: Int].self, from: payload, table: "t", userID: userID, rowID: "r", key: key)) {
+                XCTAssertEqual($0 as? SyncCryptoError, .malformed, garbage)
+            }
+        }
+    }
+}
+
+final class SyncKeyManagerTests: XCTestCase {
+    let userID = UUID(uuidString: "6F9619FF-8B86-D011-B42D-00C04FC964FF")!
+
+    private func makeClient(_ http: StubHTTPClient) -> SupabaseRESTClient {
+        SupabaseRESTClient(configuration: SupabaseConfiguration(urlString: "https://abc.supabase.co", anonKey: "anon"),
+                           tokens: MockAuthService(session: MockAuthService.makeSession(userID: userID)), http: http)
+    }
+
+    private func record(_ keyID: String) -> String {
+        #"[{"user_id":"\#(userID.uuidString.lowercased())","key_id":"\#(keyID)"}]"#
+    }
+
+    func testFirstDeviceCreatesSavesAndRegistersAKey() async throws {
+        let http = StubHTTPClient()
+        let store = InMemorySecureStore()
+        let fresh = SyncKey.generate()
+        http.on("/rest/v1/sync_keys", body: "[]")
+        http.on("/rest/v1/sync_keys", status: 201, body: "")
+        http.on("/rest/v1/sync_keys", body: record(fresh.id))
+        let manager = SyncKeyManager(store: store, generate: { fresh })
+
+        let result = try await manager.resolve(userID: userID, rest: makeClient(http))
+
+        XCTAssertEqual(result, .ready(fresh))
+        XCTAssertEqual(manager.localKey(userID: userID, keyID: fresh.id), fresh, "Saved before registering")
+        let post = try XCTUnwrap(http.requests(to: "/rest/v1/sync_keys").first { $0.httpMethod == "POST" })
+        XCTAssertEqual(post.value(forHTTPHeaderField: "Prefer"), "resolution=ignore-duplicates,return=minimal")
+        XCTAssertEqual(post.queryValue("on_conflict"), "user_id")
+        let sent = try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap(post.httpBody)) as? [[String: String]])
+        XCTAssertEqual(sent, [["user_id": userID.uuidString.lowercased(), "key_id": fresh.id]], "Only the id is sent, never the key")
+    }
+
+    func testExistingKeyIsUsedWhenThisDeviceHasIt() async throws {
+        let store = InMemorySecureStore()
+        let key = SyncKey.generate()
+        try store.set(key.data, for: SecureStoreKey.syncKey(userID: userID, keyID: key.id))
+        let http = StubHTTPClient()
+        http.on("/rest/v1/sync_keys", body: record(key.id))
+
+        let result = try await SyncKeyManager(store: store).resolve(userID: userID, rest: makeClient(http))
+
+        XCTAssertEqual(result, .ready(key))
+        XCTAssertFalse(http.requests.contains { $0.httpMethod == "POST" }, "Never registers a second key")
+    }
+
+    func testAnotherDevicesKeyThatHasntArrivedIsMissing() async throws {
+        let http = StubHTTPClient()
+        http.on("/rest/v1/sync_keys", body: record(String(repeating: "a", count: 32)))
+        let result = try await SyncKeyManager(store: InMemorySecureStore()).resolve(userID: userID, rest: makeClient(http))
+        XCTAssertEqual(result, .missing(keyID: String(repeating: "a", count: 32)))
+    }
+
+    func testLosingTheRaceDiscardsOurKey() async throws {
+        let http = StubHTTPClient()
+        let store = InMemorySecureStore()
+        let winner = String(repeating: "b", count: 32)
+        http.on("/rest/v1/sync_keys", body: "[]")
+        http.on("/rest/v1/sync_keys", status: 201, body: "")
+        http.on("/rest/v1/sync_keys", body: record(winner))
+
+        let ours = SyncKey.generate()
+        let result = try await SyncKeyManager(store: store, generate: { ours }).resolve(userID: userID, rest: makeClient(http))
+
+        XCTAssertEqual(result, .missing(keyID: winner))
+        XCTAssertNil(try store.data(for: SecureStoreKey.syncKey(userID: userID, keyID: ours.id)), "The losing key is removed")
     }
 }
 
@@ -141,9 +312,11 @@ final class SupabaseRESTClientTests: XCTestCase {
         let http = StubHTTPClient()
         http.on("/rest/v1/transactions", status: 201, body: "")
         http.on("/rest/v1/transactions", status: 201, body: "")
-        let rows = (0..<501).map { index in
-            TransactionSyncRow(userID: userID, id: "a:\(index)", accountID: "a", merchant: "M", rawDescription: "M", amountMinor: 100,
-                           currency: "GBP", direction: "debit", bankCategory: "", category: "other", occurredAt: Date(), hasTime: false, isPending: false)
+        let key = SyncKey.generate()
+        let rows = try (0..<501).map { index in
+            try TransactionSyncRow(userID: userID, id: "a:\(index)", content: TransactionSyncContent(
+                accountID: "a", merchant: "M", rawDescription: "M", amountMinor: 100, currency: "GBP", direction: "debit",
+                bankCategory: "", category: "other", occurredAt: Date(), hasTime: false, isPending: false)).sealing(with: key)
         }
 
         try await makeClient(http: http).upsert(rows, into: "transactions", onConflict: "user_id,id")
@@ -173,5 +346,15 @@ final class SupabaseRESTClientTests: XCTestCase {
         try await client.deleteAccount()
         XCTAssertEqual(http.requests.last?.httpMethod, "POST")
         XCTAssertNotNil(http.requests.last?.value(forHTTPHeaderField: "Authorization"))
+    }
+
+    func testDeleteAllRemovesEveryRowOfTheUserInATable() async throws {
+        let http = StubHTTPClient()
+        http.on("/rest/v1/visits", status: 204, body: "")
+        try await makeClient(http: http).deleteAll(from: "visits", userID: userID)
+        let request = try XCTUnwrap(http.requests.last)
+        XCTAssertEqual(request.httpMethod, "DELETE")
+        XCTAssertEqual(request.queryValue("user_id"), "eq.\(userID.uuidString.lowercased())")
+        XCTAssertNil(request.queryValue("id"), "Every row, not a list of ids")
     }
 }

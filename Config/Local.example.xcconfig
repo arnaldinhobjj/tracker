@@ -7,7 +7,9 @@ DL_DEVELOPMENT_TEAM = ABCDE12345
 
 TRUELAYER_ENVIRONMENT = sandbox
 TRUELAYER_CLIENT_ID = sandbox-yourapp-123456
-TRUELAYER_CLIENT_SECRET = your-sandbox-client-secret
+// Optional and Debug-only: talk to the TrueLayer sandbox directly instead of through the
+// truelayer-token Edge Function. Never used by Release builds.
+// TRUELAYER_CLIENT_SECRET = your-sandbox-client-secret
 
 GOOGLE_IOS_CLIENT_ID = 1234567890-abcdefg.apps.googleusercontent.com
 

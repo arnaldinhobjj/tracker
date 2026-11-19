@@ -48,14 +48,33 @@ enum CloudMerge {
 /// Keeps this device's transactions, visits and settings in step with the user's account
 /// (docs/backend-contract.md, "Sync"): pull changes since a per-table cursor, then push local
 /// changes. Reading needs a signed-in account; pushing needs an active subscription.
+///
+/// Transactions and visits are end-to-end encrypted with the account's sync key (iCloud Keychain;
+/// see `SyncKeyManager`): the server only ever stores ciphertext. Visits are only uploaded when the
+/// user turns on visit sync. Settings are plain preferences and stay readable.
 @MainActor
 @Observable
 final class CloudSyncService {
+    enum EncryptionStatus: Equatable {
+        /// Not checked yet (or signed out).
+        case unknown
+        case ready
+        /// The account's data is encrypted with a key that hasn't reached this device: iCloud
+        /// Keychain is off or still syncing. The user can wait or start over from this device.
+        case waitingForKey
+    }
+
     private(set) var isSyncing = false
     private(set) var lastSync: Date?
+    private(set) var encryptionStatus = EncryptionStatus.unknown
+    /// Visits uploaded by an older app version (before encryption and before visit sync was
+    /// opt-in) are still in the account. Until the user decides, they are neither re-uploaded nor
+    /// deleted.
+    private(set) var hasLegacyVisitsInCloud = false
     var error: UserFacingError?
 
     @ObservationIgnored private let rest: SupabaseRESTClient?
+    @ObservationIgnored private let keys: SyncKeyManager
     @ObservationIgnored private let transactions: TransactionRepository
     @ObservationIgnored private let visits: VisitRepository
     @ObservationIgnored private let settings: AppSettings
@@ -71,15 +90,19 @@ final class CloudSyncService {
     /// Pulled rows changed local data: refresh what's on screen.
     @ObservationIgnored var onDataChanged: (@MainActor () -> Void)?
 
-    static let transactionsTable = "transactions"
-    static let visitsTable = "visits"
+    static let transactionsTable = TransactionSyncRow.table
+    static let visitsTable = VisitSyncRow.table
     static let settingsTable = "user_settings"
-    private static let tombstonesKey = "cloud.pendingDeletes.transactions"
+    private static let tombstonesKey = "cloud.pendingDeletes.v2"
+    /// Before encryption, pending deletions were stored as plaintext sync rows under this key.
+    private static let legacyTombstonesKey = "cloud.pendingDeletes.transactions"
     private static let lastUserKey = "cloud.lastUserID"
     private static let maxTombstones = 2_000
 
-    init(rest: SupabaseRESTClient?, transactions: TransactionRepository, visits: VisitRepository, settings: AppSettings, defaults: UserDefaults) {
+    init(rest: SupabaseRESTClient?, keys: SyncKeyManager, transactions: TransactionRepository, visits: VisitRepository,
+         settings: AppSettings, defaults: UserDefaults) {
         self.rest = rest
+        self.keys = keys
         self.transactions = transactions
         self.visits = visits
         self.settings = settings
@@ -123,18 +146,36 @@ final class CloudSyncService {
         defer { isSyncing = false }
         prepare(for: userID)
         var changed = false
+        defer { if changed { onDataChanged?() } }
         do {
-            // Pull first, so a newer edit from another device isn't overwritten by this one.
-            changed = try await pullTransactions(userID: userID, rest: rest, now: now) || changed
-            changed = try await pullVisits(userID: userID, rest: rest, now: now) || changed
             let canWrite = self.canWrite()
+            // Settings first: they decide whether visits are uploaded.
             changed = try await syncSettings(userID: userID, rest: rest, canWrite: canWrite, now: now) || changed
-            // Deletions are pushed even without a subscription: lapsed users may still delete.
-            try await pushDeletions(userID: userID, rest: rest, softDelete: canWrite)
-            if canWrite {
-                try await pushTransactions(userID: userID, rest: rest)
-                try await pushVisits(userID: userID, rest: rest)
+
+            let resolution = try await keys.resolve(userID: userID, rest: rest)
+            try ensureCurrent(userID)
+            guard case .ready(let key) = resolution else {
+                encryptionStatus = .waitingForKey
+                error = nil
+                return
             }
+            encryptionStatus = .ready
+            adopt(key, userID: userID)
+
+            // Pull before pushing, so a newer edit from another device isn't overwritten by this one.
+            changed = try await pullTransactions(userID: userID, rest: rest, key: key, now: now) || changed
+            changed = try await pullVisits(userID: userID, rest: rest, key: key, now: now) || changed
+            // Deletions are pushed even without a subscription: lapsed users may still delete.
+            try await pushDeletions(userID: userID, rest: rest, key: key, softDelete: canWrite)
+            if canWrite {
+                try await pushTransactions(userID: userID, rest: rest, key: key)
+                if settings.visitSyncEnabled {
+                    try await pushVisits(userID: userID, rest: rest, key: key)
+                    // Any legacy visits were re-uploaded encrypted along with the rest.
+                    setLegacyVisits(false, userID: userID)
+                }
+            }
+            defaults.set(key.id, forKey: keyIDKey(userID))
             lastSync = now
             error = nil
         } catch is CancellationError {
@@ -146,12 +187,12 @@ final class CloudSyncService {
         } catch {
             self.error = UserFacingError(error)
         }
-        if changed { onDataChanged?() }
     }
 
     /// A different account on this device: everything here is new to it.
     private func prepare(for userID: UUID) {
         let id = userID.uuidString
+        hasLegacyVisitsInCloud = defaults.bool(forKey: legacyVisitsKey(userID))
         guard defaults.string(forKey: Self.lastUserKey) != id else { return }
         if defaults.string(forKey: Self.lastUserKey) != nil {
             transactions.resetCloudSyncState()
@@ -161,94 +202,194 @@ final class CloudSyncService {
         defaults.set(id, forKey: Self.lastUserKey)
     }
 
+    // MARK: Encryption key
+
+    private func keyIDKey(_ userID: UUID) -> String { "cloud.keyID.\(userID.uuidString)" }
+
+    /// The first encrypted sync on this device (an upgrade from a version without encryption), or
+    /// the account's key changed (another device started over): read everything again, so legacy
+    /// plaintext rows and rows under the old key are found and re-uploaded with this key.
+    private func adopt(_ key: SyncKey, userID: UUID) {
+        let previous = defaults.string(forKey: keyIDKey(userID))
+        guard previous != key.id else { return }
+        clearCursors(userID)
+        if previous != nil {
+            // The cloud copy was replaced: everything here must be uploaded again.
+            transactions.resetCloudSyncState()
+            visits.resetCloudSyncState()
+        }
+    }
+
+    /// "Start over": for when the key can't be recovered (iCloud Keychain lost or off). Deletes
+    /// the account's encrypted transactions and visits and its key registration, then uploads
+    /// this device's data with a new key. Data only on other devices stays there and is uploaded
+    /// again from those devices once they have the new key.
+    func startEncryptionOver() async throws {
+        guard let rest, let userID = currentUserID() else { return }
+        cancelInFlight()
+        try await rest.deleteAll(from: Self.transactionsTable, userID: userID)
+        try await rest.deleteAll(from: Self.visitsTable, userID: userID)
+        try await rest.deleteSyncKey(userID: userID)
+        transactions.resetCloudSyncState()
+        visits.resetCloudSyncState()
+        clearCursors(userID)
+        defaults.removeObject(forKey: keyIDKey(userID))
+        clearTombstones(Set(pendingTombstones().map(\.transaction.id)))
+        setLegacyVisits(false, userID: userID)
+        encryptionStatus = .unknown
+        await sync()
+    }
+
     // MARK: Transactions
 
-    private func pullTransactions(userID: UUID, rest: SupabaseRESTClient, now: Date) async throws -> Bool {
+    private func pullTransactions(userID: UUID, rest: SupabaseRESTClient, key: SyncKey, now: Date) async throws -> Bool {
         let result = try await rest.fetchChanges(TransactionSyncRow.self, from: Self.transactionsTable, after: cursor(Self.transactionsTable, userID))
         try ensureCurrent(userID)
-        let pending = Set(pendingTombstones().map(\.id))
-        let changed = try transactions.applyRemote(result.rows, pendingDeletionIDs: pending, now: now)
+        let readable = Self.readable(result.rows, open: { try $0.opening(with: key) }, isDeletion: { $0.deletedAt != nil })
+        // Plaintext tombstones from older versions: queue an encrypted tombstone, which overwrites
+        // (or, without a subscription, hard-deletes) the plaintext left on the server.
+        let legacyDeleted = readable.filter { $0.isLegacyPlaintext && $0.deletedAt != nil }.compactMap(\.bankTransaction)
+        let pending = Set(pendingTombstones().map(\.transaction.id))
+        let changed = try transactions.applyRemote(readable, pendingDeletionIDs: pending, now: now)
+        recordDeleted(legacyDeleted)
         saveCursor(result.cursor, table: Self.transactionsTable, userID: userID)
         return changed
     }
 
+    /// Rows this device can read. Rows sealed with another key, or damaged, are skipped; their
+    /// deletions still apply, because removing a row needs only its id.
+    private static func readable<Row: SyncRow>(_ rows: [Row], open: (Row) throws -> Row, isDeletion: (Row) -> Bool) -> [Row] {
+        rows.compactMap { row in
+            if let opened = try? open(row) { return opened }
+            return isDeletion(row) ? row : nil
+        }
+    }
+
     /// Local deletions. With a subscription they are soft (`deleted_at`, so other devices learn
     /// about them); without one RLS forbids updates, so the rows are hard-deleted instead.
-    private func pushDeletions(userID: UUID, rest: SupabaseRESTClient, softDelete: Bool) async throws {
+    private func pushDeletions(userID: UUID, rest: SupabaseRESTClient, key: SyncKey, softDelete: Bool) async throws {
         let tombstones = pendingTombstones()
         guard !tombstones.isEmpty else { return }
         // Skip any id that is back locally (a pending item re-fetched unchanged).
-        let stillPresent = transactions.existingIDs(in: tombstones.map(\.id))
-        let deletes = tombstones.filter { !stillPresent.contains($0.id) }.map { row -> TransactionSyncRow in
-            var row = row
-            row.userID = userID
-            return row
-        }
+        let stillPresent = transactions.existingIDs(in: tombstones.map(\.transaction.id))
+        let deletes = tombstones.filter { !stillPresent.contains($0.transaction.id) }
         if !deletes.isEmpty {
             if softDelete {
-                try await rest.upsert(deletes, into: Self.transactionsTable, onConflict: "user_id,id")
+                let rows = try deletes.map {
+                    try TransactionSyncRow(stored: $0.transaction, userID: userID, deletedAt: $0.deletedAt).sealing(with: key)
+                }
+                try await rest.upsert(rows, into: Self.transactionsTable, onConflict: "user_id,id")
             } else {
-                try await rest.delete(from: Self.transactionsTable, userID: userID, ids: deletes.map(\.id))
+                try await rest.delete(from: Self.transactionsTable, userID: userID, ids: deletes.map(\.transaction.id))
             }
         }
-        clearTombstones(Set(tombstones.map(\.id)))
+        clearTombstones(Set(tombstones.map(\.transaction.id)))
     }
 
-    private func pushTransactions(userID: UUID, rest: SupabaseRESTClient) async throws {
+    private func pushTransactions(userID: UUID, rest: SupabaseRESTClient, key: SyncKey) async throws {
         let startedAt = Date()
         let dirty = transactions.cloudDirty()
         guard !dirty.isEmpty else { return }
-        let rows = dirty.map { TransactionSyncRow(stored: $0.domain, userID: userID) }
+        let rows = try dirty.map { try TransactionSyncRow(stored: $0.domain, userID: userID).sealing(with: key) }
         try await rest.upsert(rows, into: Self.transactionsTable, onConflict: "user_id,id")
         try ensureCurrent(userID)
         transactions.markCloudSynced(ids: Set(rows.map(\.id)), at: startedAt)
+    }
+
+    /// A transaction removed on this device whose deletion hasn't reached the account yet.
+    struct PendingDeletion: Codable, Equatable {
+        var transaction: BankTransaction
+        var deletedAt: Date
     }
 
     private func recordDeleted(_ removed: [BankTransaction]) {
         guard !removed.isEmpty else { return }
         let deletedAt = Date()
         var rows = pendingTombstones()
-        let placeholder = UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
-        rows.append(contentsOf: removed.map { TransactionSyncRow(stored: $0, userID: placeholder, deletedAt: deletedAt) })
+        rows.append(contentsOf: removed.map { PendingDeletion(transaction: $0, deletedAt: deletedAt) })
         if rows.count > Self.maxTombstones { rows.removeFirst(rows.count - Self.maxTombstones) }
-        if let data = try? JSONEncoder().encode(rows) {
-            defaults.set(data, forKey: Self.tombstonesKey)
-        }
+        saveTombstones(rows)
     }
 
-    private func pendingTombstones() -> [TransactionSyncRow] {
-        guard let data = defaults.data(forKey: Self.tombstonesKey) else { return [] }
-        return (try? JSONDecoder().decode([TransactionSyncRow].self, from: data)) ?? []
+    func pendingTombstones() -> [PendingDeletion] {
+        if let data = defaults.data(forKey: Self.tombstonesKey) {
+            return (try? JSONDecoder().decode([PendingDeletion].self, from: data)) ?? []
+        }
+        // Written by a version without encryption: plaintext sync rows. Convert once.
+        guard let legacy = defaults.data(forKey: Self.legacyTombstonesKey) else { return [] }
+        let rows = (try? JSONDecoder().decode([TransactionSyncRow].self, from: legacy)) ?? []
+        let converted = rows.compactMap { row in
+            row.bankTransaction.map { PendingDeletion(transaction: $0, deletedAt: row.deletedAt ?? Date()) }
+        }
+        saveTombstones(converted)
+        defaults.removeObject(forKey: Self.legacyTombstonesKey)
+        return converted
+    }
+
+    private func saveTombstones(_ rows: [PendingDeletion]) {
+        if rows.isEmpty {
+            defaults.removeObject(forKey: Self.tombstonesKey)
+        } else if let data = try? JSONEncoder().encode(rows) {
+            defaults.set(data, forKey: Self.tombstonesKey)
+        }
     }
 
     private func clearTombstones(_ ids: Set<String>) {
         guard !ids.isEmpty else { return }
-        let remaining = pendingTombstones().filter { !ids.contains($0.id) }
-        if remaining.isEmpty {
-            defaults.removeObject(forKey: Self.tombstonesKey)
-        } else if let data = try? JSONEncoder().encode(remaining) {
-            defaults.set(data, forKey: Self.tombstonesKey)
-        }
+        saveTombstones(pendingTombstones().filter { !ids.contains($0.transaction.id) })
     }
 
     // MARK: Visits
 
-    private func pullVisits(userID: UUID, rest: SupabaseRESTClient, now: Date) async throws -> Bool {
+    private func legacyVisitsKey(_ userID: UUID) -> String { "cloud.legacyVisits.\(userID.uuidString)" }
+
+    private func setLegacyVisits(_ present: Bool, userID: UUID) {
+        if present {
+            defaults.set(true, forKey: legacyVisitsKey(userID))
+        } else {
+            defaults.removeObject(forKey: legacyVisitsKey(userID))
+        }
+        hasLegacyVisitsInCloud = present
+    }
+
+    private func pullVisits(userID: UUID, rest: SupabaseRESTClient, key: SyncKey, now: Date) async throws -> Bool {
         let result = try await rest.fetchChanges(VisitSyncRow.self, from: Self.visitsTable, after: cursor(Self.visitsTable, userID))
         try ensureCurrent(userID)
-        let changed = try visits.applyRemote(result.rows, now: now)
+        let readable = Self.readable(result.rows, open: { try $0.opening(with: key) }, isDeletion: { $0.deletedAt != nil })
+        let changed = try visits.applyRemote(readable, now: now)
+        if readable.contains(where: { $0.isLegacyPlaintext && $0.deletedAt == nil }) {
+            setLegacyVisits(true, userID: userID)
+        }
         saveCursor(result.cursor, table: Self.visitsTable, userID: userID)
         return changed
     }
 
-    private func pushVisits(userID: UUID, rest: SupabaseRESTClient) async throws {
+    /// Only called with visit sync on.
+    private func pushVisits(userID: UUID, rest: SupabaseRESTClient, key: SyncKey) async throws {
         let startedAt = Date()
         let dirty = visits.cloudDirty()
         guard !dirty.isEmpty else { return }
-        let rows = dirty.map { VisitSyncRow(stored: $0, userID: userID) }
+        let rows = try dirty.map { try VisitSyncRow(stored: $0, userID: userID).sealing(with: key) }
         try await rest.upsert(rows, into: Self.visitsTable, onConflict: "user_id,id")
         try ensureCurrent(userID)
         visits.markCloudSynced(ids: Set(rows.map(\.id)), at: startedAt)
+    }
+
+    /// Turns visit sync on (the user chose to keep their visits in the account) and uploads them,
+    /// encrypted, replacing any plaintext copies from older versions.
+    func enableVisitSync() async {
+        settings.visitSyncEnabled = true
+        await sync()
+    }
+
+    /// Turns visit sync off and deletes every visit from the account. Visits on this iPhone stay.
+    /// Allowed without a subscription.
+    func disableVisitSyncAndRemoveFromCloud() async throws {
+        settings.visitSyncEnabled = false
+        guard let rest, let userID = currentUserID() else { return }
+        try await rest.deleteAll(from: Self.visitsTable, userID: userID)
+        visits.resetCloudSyncState()
+        setLegacyVisits(false, userID: userID)
     }
 
     // MARK: Settings
@@ -295,30 +436,42 @@ final class CloudSyncService {
         guard let cursor, let data = try? JSONEncoder().encode(cursor) else { return }
         defaults.set(data, forKey: cursorKey(table, userID))
     }
+
+    private func clearCursors(_ userID: UUID) {
+        defaults.removeObject(forKey: cursorKey(Self.transactionsTable, userID))
+        defaults.removeObject(forKey: cursorKey(Self.visitsTable, userID))
+    }
 }
 
 // MARK: - Row mapping
 
 extension TransactionSyncRow {
     init(stored transaction: BankTransaction, userID: UUID, deletedAt: Date? = nil) {
-        self.init(userID: userID, id: transaction.id, accountID: transaction.accountID, merchant: transaction.merchant,
-                  rawDescription: transaction.rawDescription, amountMinor: transaction.amountMinor, currency: transaction.currency,
-                  direction: transaction.direction.rawValue, bankCategory: transaction.bankCategory, category: transaction.category.rawValue,
-                  occurredAt: transaction.timestamp, hasTime: transaction.hasTime, isPending: transaction.isPending, deletedAt: deletedAt)
+        self.init(userID: userID, id: transaction.id, content: TransactionSyncContent(
+            accountID: transaction.accountID, merchant: transaction.merchant, rawDescription: transaction.rawDescription,
+            amountMinor: transaction.amountMinor, currency: transaction.currency, direction: transaction.direction.rawValue,
+            bankCategory: transaction.bankCategory, category: transaction.category.rawValue, occurredAt: transaction.timestamp,
+            hasTime: transaction.hasTime, isPending: transaction.isPending
+        ), deletedAt: deletedAt)
     }
 
-    var bankTransaction: BankTransaction {
-        BankTransaction(id: id, accountID: accountID, merchant: merchant, rawDescription: rawDescription, amountMinor: amountMinor,
-                        currency: currency, direction: TransactionDirection(rawValue: direction) ?? .debit, bankCategory: bankCategory,
-                        category: SpendCategory(rawValue: category) ?? .other, timestamp: occurredAt, hasTime: hasTime, isPending: isPending)
+    /// Nil while the row is still encrypted.
+    var bankTransaction: BankTransaction? {
+        guard let content else { return nil }
+        return BankTransaction(id: id, accountID: content.accountID, merchant: content.merchant, rawDescription: content.rawDescription,
+                               amountMinor: content.amountMinor, currency: content.currency,
+                               direction: TransactionDirection(rawValue: content.direction) ?? .debit, bankCategory: content.bankCategory,
+                               category: SpendCategory(rawValue: content.category) ?? .other, timestamp: content.occurredAt,
+                               hasTime: content.hasTime, isPending: content.isPending)
     }
 }
 
 extension VisitSyncRow {
     init(stored visit: StoredVisit, userID: UUID) {
-        self.init(userID: userID, id: visit.id, arrival: visit.arrival, departure: visit.departure, latitude: visit.latitude,
-                  longitude: visit.longitude, placeName: visit.placeName, placeCategory: visit.placeCategory,
-                  isNamedPlace: visit.isNamedPlace, isResolved: visit.isResolved, calendarEventID: visit.calendarEventID,
-                  calendarContentHash: visit.calendarContentHash, calendarSyncedAt: visit.calendarSyncedAt)
+        self.init(userID: userID, id: visit.id, content: VisitSyncContent(
+            arrival: visit.arrival, departure: visit.departure, latitude: visit.latitude, longitude: visit.longitude,
+            placeName: visit.placeName, placeCategory: visit.placeCategory, isNamedPlace: visit.isNamedPlace,
+            isResolved: visit.isResolved
+        ))
     }
 }

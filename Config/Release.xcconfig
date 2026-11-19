@@ -1,0 +1,8 @@
+// Release builds: everything from Base.xcconfig (and Local.xcconfig), except secrets that must
+// never ship. TrueLayer tokens are exchanged by the `truelayer-token` Edge Function in Release, so
+// any sandbox client secret set in Local.xcconfig is blanked here and never reaches Info.plist.
+// CI checks this (see .github/workflows/ios.yml).
+
+#include "Base.xcconfig"
+
+TRUELAYER_CLIENT_SECRET =

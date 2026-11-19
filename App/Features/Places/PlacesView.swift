@@ -23,6 +23,11 @@ struct PlacesView: View {
     var body: some View {
         NavigationStack {
             List {
+                if environment.cloudSync.hasLegacyVisitsInCloud && !environment.settings.visitSyncEnabled {
+                    Section {
+                        LegacyVisitsPrompt(environment: environment)
+                    }
+                }
                 if !environment.settings.locationLoggingEnabled {
                     Section {
                         ContentUnavailableView {

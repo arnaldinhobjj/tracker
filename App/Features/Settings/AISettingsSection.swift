@@ -14,11 +14,18 @@ struct AISettingsSection: View {
     @State private var saveError: String?
 
     private var provider: AIProvider? { environment.aiProviders.first }
+    /// AI suggestions are a Pro feature. The toggle can still be turned off without Pro.
+    private var isPro: Bool { environment.proAccess == .available }
 
     var body: some View {
         Section {
             Toggle("Connect AI", isOn: $settings.aiAssistantEnabled)
                 .accessibilityIdentifier("aiToggle")
+                .disabled(!isPro && !settings.aiAssistantEnabled)
+            if !isPro {
+                Button("AI suggestions need DayLedger Pro") { environment.requestPro() }
+                    .disabled(environment.proAccess == .unavailable)
+            }
 
             if settings.aiAssistantEnabled, let provider {
                 LabeledContent("Provider", value: provider.displayName)

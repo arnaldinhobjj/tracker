@@ -81,7 +81,7 @@ private struct AlwaysPermissionExplanation: View {
             Text("Log visits automatically")
                 .font(.title2.bold())
             Text("With \"While Using the App\", iOS only tells DayLedger about places while the app is open, so most visits are missed.")
-            Text("\"Always\" lets iOS wake DayLedger briefly when you arrive at or leave a place. DayLedger does not track you continuously: it receives a handful of visit notifications a day, and location data stays on your iPhone. Only the place name and times are written to your DayLedger calendar.")
+            Text("\"Always\" lets iOS wake DayLedger briefly when you arrive at or leave a place. DayLedger does not track you continuously: it receives a handful of visit notifications a day. Visits are stored on your iPhone; they're only uploaded to your DayLedger account, end-to-end encrypted, if you turn on visit sync. Only the place name and times are written to your DayLedger calendar.")
                 .foregroundStyle(.secondary)
             Spacer()
             Button(action: allow) {

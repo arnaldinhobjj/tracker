@@ -9,7 +9,12 @@ struct AssistantView: View {
     var body: some View {
         NavigationStack {
             List {
-                if !environment.settings.aiAssistantEnabled || !model.hasAPIKey {
+                if environment.proAccess != .available {
+                    Section {
+                        ProUpsellView(environment: environment, title: "AI suggestions are part of Pro", systemImage: "sparkles",
+                                      message: "DayLedger Pro proposes events from your routine. Nothing is added to your calendar until you approve it.")
+                    }
+                } else if !environment.settings.aiAssistantEnabled || !model.hasAPIKey {
                     Section {
                         ContentUnavailableView {
                             Label("AI assistant is off", systemImage: "sparkles")

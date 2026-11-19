@@ -1,18 +1,28 @@
 import AccountKit
 import SwiftUI
 
-/// Which screen the app shows at the top level.
-enum AppGateState: Equatable {
-    /// The app itself (`RootView`).
-    case main
-    /// Release build without `SUPABASE_URL`: nothing can be done without accounts.
-    case accountsNotConfigured
-    /// Signed out: welcome, log in, register.
-    case signedOut
-    /// Signed in; asking the server (or StoreKit) about the subscription.
-    case checkingSubscription
+/// Whether DayLedger Pro features (cloud sync, AI suggestions) can be used right now.
+///
+/// DayLedger is local-first: Today, widgets, bank connections, Places and the calendar diary work
+/// without an account. Only Pro features need an account with an active subscription.
+enum ProAccess: Equatable {
+    case available
+    /// No account yet: sign in (or create one) first.
+    case signInRequired
     /// Signed in without an active subscription or trial.
+    case subscriptionRequired
+    /// Signed in; asking the server (or StoreKit) about the subscription.
+    case checking
+    /// Release build without an account backend: Pro can't be offered.
+    case unavailable
+}
+
+/// The account sheets presented over the app.
+enum AccountSheet: String, Identifiable {
+    case signIn
     case paywall
+
+    var id: String { rawValue }
 }
 
 /// The gating rules, kept pure so they can be unit tested.
@@ -23,27 +33,37 @@ enum AppGate {
         case notEntitled
     }
 
-    static func state(
+    static func proAccess(
         isUITesting: Bool,
         isDeveloperAccount: Bool,
         isConfigured: Bool,
         isDebugBuild: Bool,
         isSignedIn: Bool,
         entitlement: Entitlement
-    ) -> AppGateState {
-        // UI tests and the no-credentials demo (`-UITestMockData`) skip accounts entirely.
-        if isUITesting { return .main }
+    ) -> ProAccess {
+        // UI tests and the no-credentials demo (`-UITestMockData`) have no accounts but exercise
+        // the opt-in flows (e.g. the AI assistant's off state).
+        if isUITesting { return .available }
         // Debug-only local account: always subscribed, never talks to the backend.
-        if isDeveloperAccount && isSignedIn { return .main }
+        if isDeveloperAccount && isSignedIn { return .available }
         if !isSignedIn {
-            // Debug builds still show the login screens without a backend, so they can be tried
-            // (and the developer login used). Release builds can't do anything without one.
-            return isConfigured || isDebugBuild ? .signedOut : .accountsNotConfigured
+            // Debug builds still offer the login screens without a backend, so they can be tried
+            // (and the developer login used).
+            return isConfigured || isDebugBuild ? .signInRequired : .unavailable
         }
         switch entitlement {
-        case .unknown: return .checkingSubscription
-        case .entitled: return .main
-        case .notEntitled: return .paywall
+        case .unknown: return .checking
+        case .entitled: return .available
+        case .notEntitled: return .subscriptionRequired
+        }
+    }
+
+    /// The sheet that unlocks Pro from the given state, if any.
+    static func sheet(toUnlock access: ProAccess) -> AccountSheet? {
+        switch access {
+        case .signInRequired: return .signIn
+        case .subscriptionRequired, .checking: return .paywall
+        case .available, .unavailable: return nil
         }
     }
 
@@ -56,16 +76,10 @@ enum AppGate {
     }
 }
 
-/// Shows the welcome screen, the paywall or the app, depending on the account.
-struct AppGateView: View {
-    let environment: AppEnvironment
-
-    private var account: AccountController { environment.account }
-    private var subscriptions: SubscriptionManager { environment.subscriptions }
-
-    private var state: AppGateState {
-        AppGate.state(
-            isUITesting: environment.isUITesting,
+extension AppEnvironment {
+    var proAccess: ProAccess {
+        AppGate.proAccess(
+            isUITesting: isUITesting,
             isDeveloperAccount: account.isDeveloperAccount,
             isConfigured: account.isConfigured,
             isDebugBuild: AppGate.isDebugBuild,
@@ -74,23 +88,55 @@ struct AppGateView: View {
         )
     }
 
+    /// Opens whatever unlocks Pro: sign-in when signed out, the paywall when signed in.
+    func requestPro() {
+        accountSheet = AppGate.sheet(toUnlock: proAccess)
+    }
+}
+
+/// The app itself, always: nothing is locked behind an account. Sign-in and the paywall appear as
+/// sheets when the user asks for a Pro feature (or opens them from Settings).
+struct AppGateView: View {
+    @Bindable var environment: AppEnvironment
+    @State private var paywallAfterCheck = false
+
+    private var account: AccountController { environment.account }
+
+    private func showPaywallIfNeeded(_ access: ProAccess) {
+        guard paywallAfterCheck, access != .checking else { return }
+        paywallAfterCheck = false
+        if access == .subscriptionRequired { environment.accountSheet = .paywall }
+    }
+
     var body: some View {
         Group {
-            switch state {
-            case .main:
-                RootView(environment: environment)
-            case .accountsNotConfigured:
-                AccountsNotConfiguredView()
-            case .signedOut:
-                WelcomeView(account: account, configuration: environment.configuration)
-            case .checkingSubscription:
-                CheckingSubscriptionView()
-                    .task { await subscriptions.refreshEntitlement() }
-            case .paywall:
-                PaywallView(subscriptions: subscriptions, account: account, configuration: environment.configuration)
-            }
+            RootView(environment: environment)
+                .sheet(item: $environment.accountSheet) { sheet in
+                    switch sheet {
+                    case .signIn:
+                        WelcomeView(account: account, configuration: environment.configuration) {
+                            environment.accountSheet = nil
+                        }
+                    case .paywall:
+                        PaywallView(subscriptions: environment.subscriptions, account: account,
+                                    configuration: environment.configuration) {
+                            environment.accountSheet = nil
+                        }
+                    }
+                }
         }
-        .animation(.default, value: state)
+        .onChange(of: account.isSignedIn) { _, signedIn in
+            guard environment.accountSheet != nil else { return }
+            environment.accountSheet = nil
+            // Signed in from the sign-in sheet: once the subscription check finishes, show the
+            // paywall unless they're already subscribed (no paywall flash for subscribers).
+            paywallAfterCheck = signedIn
+            if signedIn { showPaywallIfNeeded(environment.proAccess) }
+        }
+        .onChange(of: environment.proAccess) { _, access in
+            if access == .available { environment.accountSheet = nil }
+            showPaywallIfNeeded(access)
+        }
         .sheet(isPresented: Binding(get: { account.isChoosingNewPassword }, set: { account.isChoosingNewPassword = $0 })) {
             NewPasswordView(account: account)
         }
@@ -100,28 +146,37 @@ struct AppGateView: View {
     }
 }
 
-private struct CheckingSubscriptionView: View {
-    var body: some View {
-        VStack(spacing: 16) {
-            ProgressView()
-                .controlSize(.large)
-            Text("Checking your subscription…")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(.systemGroupedBackground))
-    }
-}
+/// Shown in place of a Pro feature that isn't unlocked.
+struct ProUpsellView: View {
+    let environment: AppEnvironment
+    let title: String
+    let systemImage: String
+    let message: String
 
-/// Release builds without a backend configured.
-struct AccountsNotConfiguredView: View {
     var body: some View {
         ContentUnavailableView {
-            Label("Accounts aren't set up yet", systemImage: "person.crop.circle.badge.exclamationmark")
+            Label(title, systemImage: systemImage)
         } description: {
-            Text("This build of DayLedger isn't connected to an account server, so you can't log in. Please install the version from the App Store.")
+            Text(message)
+        } actions: {
+            switch environment.proAccess {
+            case .signInRequired:
+                Button("Sign in to get DayLedger Pro") { environment.requestPro() }
+                    .buttonStyle(.borderedProminent)
+                    .accessibilityIdentifier("proSignIn")
+            case .subscriptionRequired:
+                Button("See DayLedger Pro") { environment.requestPro() }
+                    .buttonStyle(.borderedProminent)
+                    .accessibilityIdentifier("proPaywall")
+            case .checking:
+                ProgressView()
+            case .unavailable:
+                Text("DayLedger Pro isn't available in this build.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            case .available:
+                EmptyView()
+            }
         }
-        .background(Color(.systemGroupedBackground))
     }
 }

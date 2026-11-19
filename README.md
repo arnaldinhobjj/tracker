@@ -5,7 +5,8 @@ An iOS app (SwiftUI, iOS 17+) that combines your spending, the places you visit 
 - **Today**: total spent today and today's transactions from your UK bank (Open Banking via TrueLayer), cached offline.
 - **Widgets**: home screen (small, medium) and lock screen (rectangular, inline, circular) widgets showing today's spend.
 - **Places**: battery-friendly visit logging that writes entries like "At Costa Coffee · £3.40, 09:10–09:45" to a dedicated **DayLedger** Google calendar.
-- **Suggest** (optional): an AI assistant, using your own API key, that proposes events from your routine. Nothing is added until you approve it.
+- **Suggest** (optional, DayLedger Pro): an AI assistant, using your own API key, that proposes events from your routine. Nothing is added until you approve it.
+- **Account** (optional): sign in for **DayLedger Pro**, which adds cloud sync (end-to-end encrypted) and AI suggestions. Everything above except Suggest works without an account.
 
 > "DayLedger" is a placeholder name.
 
@@ -50,7 +51,7 @@ Edit `Config/Local.xcconfig` (see [Configuration](#configuration)), then:
 open DayLedger.xcodeproj
 ```
 
-Select the **DayLedger** scheme and run. Without any credentials the app still launches: the Today screen asks you to connect a bank, and settings explain what's missing.
+Select the **DayLedger** scheme and run. Without any credentials the app still launches straight into Today (no sign-in is ever required): it asks you to connect a bank, and Settings explains what's missing.
 
 To try the UI with fake data and no credentials, add `-UITestMockData` under *Scheme → Run → Arguments Passed On Launch*. This uses an in-memory store and a mock bank.
 
@@ -76,8 +77,9 @@ All IDs live in `Config/Local.xcconfig`, which is **git-ignored**. `Config/Base.
 | `DL_DEVELOPMENT_TEAM` | `ABCDE12345` | Your Apple Team ID (Xcode → Settings → Accounts). |
 | `TRUELAYER_ENVIRONMENT` | `sandbox` | `sandbox` or `live`. |
 | `TRUELAYER_CLIENT_ID` | `sandbox-dayledger-1a2b3c` | From the TrueLayer console. |
-| `TRUELAYER_CLIENT_SECRET` | `…` | **Sandbox / personal use only**, see below. |
+| `TRUELAYER_CLIENT_SECRET` | `…` | Optional, **Debug builds only**: talk to the TrueLayer sandbox without a backend. Release builds blank it (`Config/Release.xcconfig`). See below. |
 | `GOOGLE_IOS_CLIENT_ID` | `1234-abcd.apps.googleusercontent.com` | Google OAuth client of type iOS. |
+| `SUPABASE_URL`, `SUPABASE_ANON_KEY` | `https:/$()/xyz.supabase.co` | The DayLedger backend: accounts, DayLedger Pro, and the TrueLayer token exchange (see [`supabase/README.md`](supabase/README.md)). |
 
 The App Group is derived automatically as `group.$(DL_BUNDLE_ID)`.
 
@@ -86,7 +88,7 @@ The App Group is derived automatically as `group.$(DL_BUNDLE_ID)`.
 ## TrueLayer sandbox setup
 
 1. Sign up at [console.truelayer.com](https://console.truelayer.com) and stay in the **Sandbox** environment.
-2. Under **App settings**, copy the **client ID** and **client secret** into `Config/Local.xcconfig`.
+2. Under **App settings**, copy the **client ID** into `Config/Local.xcconfig` (`TRUELAYER_CLIENT_ID`). Put the **client secret** in the backend's function secrets (`supabase secrets set TRUELAYER_CLIENT_ID=… TRUELAYER_CLIENT_SECRET=…`, see [`supabase/README.md`](supabase/README.md)) and deploy the `truelayer-token` function. For quick local sandbox work without a backend you can instead set `TRUELAYER_CLIENT_SECRET` in `Config/Local.xcconfig`; only Debug builds use it.
 3. Under **Allowed redirect URIs**, add exactly:
 
    ```text
@@ -96,7 +98,7 @@ The App Group is derived automatically as `group.$(DL_BUNDLE_ID)`.
 4. Make sure the **Data API** product is enabled (scopes `info accounts balance cards transactions offline_access`).
 5. Run the app → **Settings → Connect a bank**. Pick **Mock Bank** and log in with the sandbox test credentials shown in the TrueLayer docs (commonly `john` / `doe`).
 
-**About the client secret.** TrueLayer's token endpoint requires the client secret, and a secret shipped inside an app can be extracted. That's acceptable for the sandbox and for a personal build on your own phone, which is the agreed scope here. It is **not** acceptable for an App Store release. The exchange sits behind the `TrueLayerTokenExchanging` protocol (`Packages/DayLedgerKit/Sources/BankKit/TrueLayerTokenExchanger.swift`). For production, implement one that calls a small backend you own (for example a Cloudflare Worker) holding the secret, and leave `TRUELAYER_CLIENT_SECRET` empty.
+**About the client secret.** TrueLayer's token endpoint requires the client secret, and a secret shipped inside an app can be extracted. So the app never holds it in Release: tokens are exchanged and refreshed by the `truelayer-token` Edge Function (`supabase/functions/truelayer-token`), which adds the secret from its function secrets and passes the tokens through without storing them. The app calls it with the public anon key, so bank connections still need no DayLedger account. In code this is `BackendTrueLayerTokenExchanger` (`Packages/DayLedgerKit/Sources/BankKit/TrueLayerTokenExchanger.swift`). `DirectTrueLayerTokenExchanger`, which talks to TrueLayer with a local secret, only exists in Debug builds; `Config/Release.xcconfig` blanks `TRUELAYER_CLIENT_SECRET`, and CI plants a canary secret and fails if it reaches a Release build.
 
 **Going live** requires TrueLayer to approve your application for production access, which may not be offered to individuals. Set `TRUELAYER_ENVIRONMENT = live` once approved. UK banks require re-confirming access every 90 days; the app shows a **Reconnect** prompt when that happens.
 
@@ -157,6 +159,7 @@ Packages/DayLedgerKit/
   CalendarKit    Google OAuth (PKCE), Calendar API, visit/transaction matcher, event builder
   LocationKit    CoreLocation visit + significant-change monitoring, MapKit place lookup
   AIKit          AIProvider protocol, Anthropic provider, anonymised summary, proposal parser
+  AccountKit     Supabase Auth, PostgREST sync client, entitlement, end-to-end sync encryption
 App/             SwiftUI views, view models, SwiftData persistence, app services
 Widget/          WidgetKit extension (reads a JSON snapshot from the App Group)
 ```
@@ -166,16 +169,22 @@ Key flows:
 - **Bank sync**: `TransactionSyncService` → `BankService.fetchTransactions` → SwiftData (`TransactionRepository`) → widget snapshot → calendar re-sync.
 - **Visits**: iOS wakes the app → `LocationLoggingService` stores the visit, resolves the place, then `CalendarSyncService` writes it.
 - **No duplicates**: Google event IDs are derived from visit IDs (`CalendarEventID`). Inserting an existing ID returns 409 and the app updates instead. A content hash skips events that haven't changed.
+- **Local-first**: nothing requires an account. `AppGate.proAccess` decides only whether DayLedger Pro features (cloud sync, AI suggestions) are available; sign-in and the paywall are sheets opened from Settings or from a Pro feature.
+- **Cloud sync** (signed in): `CloudSyncService` pulls changes, then pushes. Transactions, and visits when visit sync is on, are sealed with AES-256-GCM using the account's sync key (`SyncKeyManager`, iCloud Keychain) before upload; see `docs/backend-contract.md`, "Encryption".
 - **Background refresh**: `BGAppRefreshTask` (`app.dayledger.refresh`) fetches transactions, updates the widget and syncs the calendar when iOS allows.
 
 ## Privacy and security
 
-- Tokens and API keys are stored **only in the Keychain** (`kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`, never synced to iCloud).
-- No secrets are in the source code or the repository. IDs come from the git-ignored `Config/Local.xcconfig`.
-- Location, calendar writing and AI are each **off until you turn them on**.
+- Tokens and API keys are stored **only in the Keychain** (`kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`, never synced to iCloud). The one exception is the end-to-end **sync key**, which is deliberately kept in iCloud Keychain so your other devices can read your synced data.
+- No secrets are in the source code, the repository or Release builds. IDs come from the git-ignored `Config/Local.xcconfig`; the TrueLayer client secret lives only in the backend's function secrets.
+- **No account needed.** Today, widgets, bank connections, Places and the calendar diary work entirely on the device. Location, calendar writing and AI are each **off until you turn them on**.
+- **With an account (DayLedger Pro):** transactions sync to your account, **end-to-end encrypted** on the device: the server stores only ciphertext and the key's fingerprint, and can't read merchants, amounts, places or coordinates. **Visits are only uploaded if you turn on visit sync** (off by default, account-wide). Preferences (which features are on) sync unencrypted. Your email address and subscription status are stored with the account.
+- **Upgrading from an earlier version**: data that older versions uploaded in plaintext is re-uploaded encrypted on the first sync (which erases the plaintext). Visits that older versions uploaded wait for your choice in Settings or Places: keep them (encrypted) or remove them from your account.
+- If the sync key is lost on every device (for example iCloud Keychain turned off everywhere), the synced copy can't be read by anyone, including DayLedger. **Settings → Cloud sync → Start over with this iPhone's data** deletes it and uploads again with a new key.
 - The AI receives an anonymised summary only: no coordinates, addresses, account details, individual transactions or event titles. A unit test asserts this.
-- **Settings → Privacy & your data** explains what is collected and where it goes. **Delete all my data** stops location logging, revokes the bank consent and the Google sign-in, optionally deletes the DayLedger Google calendar, and wipes the local database, widget data, Keychain items and preferences.
-- No analytics, ads or servers of our own.
+- **Settings → Privacy & your data** explains what is collected and where it goes. **Delete all my data** deletes your DayLedger account (if any) and its sync key, stops location logging, revokes the bank consent and the Google sign-in, optionally deletes the DayLedger Google calendar, and wipes the local database, widget data, Keychain items and preferences.
+- No analytics, no ads, no tracking. The only server of our own is the optional account backend (`supabase/`).
+- **Privacy manifests**: `App/PrivacyInfo.xcprivacy` (UserDefaults reasons `CA92.1` and `1C8F.1`; collected data: email address, user ID, purchase history, other financial info and precise location, all linked to the account, used only for app functionality, never for tracking) and `Widget/PrivacyInfo.xcprivacy` (nothing collected, no required-reason APIs). Keep the App Store Connect privacy label in line with them. Financial info and location are end-to-end encrypted but declared anyway, to be conservative.
 
 ## Tests and CI
 
@@ -183,9 +192,11 @@ Unit tests:
 
 - `CalendarKitTests`: transaction-to-visit matching rules, calendar event building, Calendar API client (create/update, 401 retry, 403), PKCE.
 - `AIKitTests`: AI proposal parsing and validation, summary anonymisation, Anthropic request and response handling (refusal, truncation, bad key).
-- `BankKitTests`: TrueLayer parsing, categorisation, spending maths, token refresh, expired consent.
+- `BankKitTests`: TrueLayer parsing, categorisation, spending maths, token refresh, expired consent, the backend token exchange (no secret sent, error mapping).
+- `AccountKitTests`: auth, entitlement, PostgREST client, encrypted sync rows (no plaintext uploaded, legacy rows read), AES-GCM sealing (tampering, wrong key, rows bound to user and id), sync key registration races.
 - `SharedModelsTests`: widget snapshot, visit merging.
-- `DayLedgerTests`: Today view model (offline cache), pending→settled replacement, end-to-end calendar sync without duplicates.
+- `DayLedgerTests`: Today view model (offline cache), pending→settled replacement, end-to-end calendar sync without duplicates, cloud sync (encryption, plaintext → encrypted upgrade, missing key, opt-in visit sync, start over), local-first gating, token exchanger selection.
+- `supabase/`: Deno tests for the Edge Functions (including `truelayer-token`) and pgTAP tests for the schema (including `06_encryption.test.sql`), run by `.github/workflows/backend.yml`.
 - `DayLedgerUITests`: launches the app with mock data (Today, Privacy, Places, Suggest).
 
 To run them locally, use Xcode (⌘U on the **DayLedger** scheme) for app and UI tests, and the **DayLedgerKit-Package** scheme for the package tests. Or from the command line:
@@ -198,7 +209,7 @@ xcodebuild test -project DayLedger.xcodeproj -scheme DayLedger -destination 'pla
 cd Packages/DayLedgerKit && xcodebuild test -scheme DayLedgerKit-Package -destination 'platform=iOS Simulator,name=iPhone 16'
 ```
 
-`.github/workflows/ios.yml` runs on every push on a macOS runner: it generates the project, runs the package tests and the app + UI tests on a simulator, and builds an unsigned Release build for a physical device.
+`.github/workflows/ios.yml` runs on every push on a macOS runner: it generates the project, runs the package tests and the app + UI tests on a simulator, and builds an unsigned Release build for a physical device with a canary `TRUELAYER_CLIENT_SECRET`, failing if the secret (or the Debug-only direct exchanger) ends up in the Release app.
 
 ## What can't be tested without real credentials or a device
 
@@ -217,8 +228,15 @@ cd Packages/DayLedgerKit && xcodebuild test -scheme DayLedgerKit-Package -destin
 | Lock screen privacy redaction | Device-only behaviour | Lock the phone with the widget on the lock screen |
 | AI suggestions | Needs your Anthropic API key and a few weeks of visits | Preview the summary, then Suggest and approve one |
 | Keychain behaviour | CI runs unsigned tests that use an in-memory store | Sign in, force-quit, reopen: you stay signed in |
+| End-to-end sync across devices (iCloud Keychain) | Needs two signed-in devices with iCloud Keychain on | Sign in on phone A, sync; sign in on phone B: its transactions appear. Turn iCloud Keychain off on B and reinstall: Settings shows "Waiting for your encryption key" |
+| Upgrade of existing cloud data to encrypted | Needs an account with data from the previous version | Before upgrading, check a row in the Supabase table editor has `merchant` set; after the first sync on the new version, `payload` is set and `merchant` is null |
+| `truelayer-token` against TrueLayer | Needs the function deployed with your TrueLayer secrets | Leave `TRUELAYER_CLIENT_SECRET` empty, connect Mock Bank, pull to refresh after an hour |
 
 ## Known limitations
+
+- **Encryption depends on iCloud Keychain**: a device without iCloud Keychain can't read the synced copy (it says so and offers to start over). There is no recovery phrase yet.
+- **Mixed app versions**: an older version still on another device keeps uploading plaintext; newer devices re-encrypt those rows on their next sync. Lapsed subscribers' old plaintext rows stay until they subscribe again (writes need an entitlement); "Delete account" removes them.
+- **`truelayer-token` has no rate limiting of its own** beyond Supabase's gateway; it only works for holders of a valid TrueLayer code or refresh token. Consider App Attest before a public launch.
 
 - **Widget freshness**: widgets update when the app syncs (on open, pull-to-refresh, background refresh, or a visit wake-up), not the instant a payment happens. Real-time updates would need a server and push notifications.
 - **Transaction times**: settled transactions often carry only a date. Those are matched to visits by name only.

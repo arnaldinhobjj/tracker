@@ -8,10 +8,16 @@ public protocol SyncRow: Codable, Sendable {
     var cursorID: String? { get }
 }
 
-/// `public.transactions` (contract: docs/backend-contract.md). Columns are snake_case on the wire.
-public struct TransactionSyncRow: SyncRow, Equatable {
-    public var userID: UUID
-    public var id: String
+// MARK: - Encrypted rows
+//
+// Transactions and visits are end-to-end encrypted (docs/backend-contract.md, "Encryption"). On
+// the wire a row is `user_id`, `id`, `key_id`, `payload` (the sealed content) and `deleted_at`;
+// the legacy plaintext columns are always sent as explicit nulls, which also erases plaintext an
+// older app version wrote. Rows written by older versions arrive with plaintext columns and no
+// payload: they are still read (`isLegacyPlaintext`) so the app can re-upload them encrypted.
+
+/// What a transaction row holds once decrypted.
+public struct TransactionSyncContent: Codable, Equatable, Sendable {
     public var accountID: String
     public var merchant: String
     public var rawDescription: String
@@ -25,15 +31,9 @@ public struct TransactionSyncRow: SyncRow, Equatable {
     public var occurredAt: Date
     public var hasTime: Bool
     public var isPending: Bool
-    /// Set by the server trigger; never sent.
-    public var updatedAt: String?
-    public var deletedAt: Date?
 
-    public init(userID: UUID, id: String, accountID: String, merchant: String, rawDescription: String, amountMinor: Int,
-                currency: String, direction: String, bankCategory: String, category: String, occurredAt: Date,
-                hasTime: Bool, isPending: Bool, updatedAt: String? = nil, deletedAt: Date? = nil) {
-        self.userID = userID
-        self.id = id
+    public init(accountID: String, merchant: String, rawDescription: String, amountMinor: Int, currency: String, direction: String,
+                bankCategory: String, category: String, occurredAt: Date, hasTime: Bool, isPending: Bool) {
         self.accountID = accountID
         self.merchant = merchant
         self.rawDescription = rawDescription
@@ -45,15 +45,64 @@ public struct TransactionSyncRow: SyncRow, Equatable {
         self.occurredAt = occurredAt
         self.hasTime = hasTime
         self.isPending = isPending
+    }
+}
+
+/// `public.transactions` (contract: docs/backend-contract.md).
+public struct TransactionSyncRow: SyncRow, Equatable {
+    public static let table = "transactions"
+
+    public var userID: UUID
+    public var id: String
+    /// The readable content: decrypted, or legacy plaintext. Nil for a pulled encrypted row that
+    /// hasn't been opened yet.
+    public var content: TransactionSyncContent?
+    /// The encrypted content as stored on the server. Nil for legacy plaintext rows.
+    public var sealed: SealedPayload?
+    /// Set by the server trigger; never sent.
+    public var updatedAt: String?
+    public var deletedAt: Date?
+
+    public init(userID: UUID, id: String, content: TransactionSyncContent?, sealed: SealedPayload? = nil,
+                updatedAt: String? = nil, deletedAt: Date? = nil) {
+        self.userID = userID
+        self.id = id
+        self.content = content
+        self.sealed = sealed
         self.updatedAt = updatedAt
         self.deletedAt = deletedAt
     }
 
+    /// A row written by an app version without encryption: its content is readable by the server
+    /// and it should be re-uploaded encrypted.
+    public var isLegacyPlaintext: Bool { sealed == nil && content != nil }
+
     public var cursorID: String? { id }
+
+    /// A copy with `content` encrypted into `sealed`, ready to upload.
+    public func sealing(with key: SyncKey) throws -> TransactionSyncRow {
+        guard let content else { throw SyncCryptoError.nothingToSeal }
+        var copy = self
+        copy.sealed = try SyncCipher.seal(content, table: Self.table, userID: userID, rowID: id, key: key)
+        return copy
+    }
+
+    /// A copy with `sealed` decrypted into `content`. Legacy plaintext rows are returned as they are.
+    public func opening(with key: SyncKey) throws -> TransactionSyncRow {
+        guard let sealed else { return self }
+        var copy = self
+        copy.content = try SyncCipher.open(TransactionSyncContent.self, from: sealed, table: Self.table, userID: userID, rowID: id, key: key)
+        return copy
+    }
 
     enum CodingKeys: String, CodingKey {
         case userID = "user_id"
         case id
+        case keyID = "key_id"
+        case payload
+        case updatedAt = "updated_at"
+        case deletedAt = "deleted_at"
+        // Legacy plaintext columns: read from old rows, always written as null.
         case accountID = "account_id"
         case merchant
         case rawDescription = "raw_description"
@@ -65,54 +114,64 @@ public struct TransactionSyncRow: SyncRow, Equatable {
         case occurredAt = "occurred_at"
         case hasTime = "has_time"
         case isPending = "is_pending"
-        case updatedAt = "updated_at"
-        case deletedAt = "deleted_at"
     }
+
+    static let legacyColumns: [CodingKeys] = [.accountID, .merchant, .rawDescription, .amountMinor, .currency, .direction,
+                                             .bankCategory, .category, .occurredAt, .hasTime, .isPending]
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         userID = try c.decode(UUID.self, forKey: .userID)
         id = try c.decode(String.self, forKey: .id)
-        accountID = try c.decodeIfPresent(String.self, forKey: .accountID) ?? ""
-        merchant = try c.decodeIfPresent(String.self, forKey: .merchant) ?? ""
-        rawDescription = try c.decodeIfPresent(String.self, forKey: .rawDescription) ?? ""
-        amountMinor = try c.decodeFlexibleInt(forKey: .amountMinor)
-        currency = (try c.decodeIfPresent(String.self, forKey: .currency) ?? "GBP").trimmingCharacters(in: .whitespaces)
-        direction = try c.decodeIfPresent(String.self, forKey: .direction) ?? "debit"
-        bankCategory = try c.decodeIfPresent(String.self, forKey: .bankCategory) ?? ""
-        category = try c.decodeIfPresent(String.self, forKey: .category) ?? "other"
-        occurredAt = try c.decodeISODate(forKey: .occurredAt)
-        hasTime = try c.decodeIfPresent(Bool.self, forKey: .hasTime) ?? false
-        isPending = try c.decodeIfPresent(Bool.self, forKey: .isPending) ?? false
         updatedAt = try c.decodeIfPresent(String.self, forKey: .updatedAt)
         deletedAt = try c.decodeISODateIfPresent(forKey: .deletedAt)
+        if let payload = try c.decodeIfPresent(String.self, forKey: .payload) {
+            sealed = SealedPayload(keyID: try c.decodeIfPresent(String.self, forKey: .keyID) ?? "", ciphertext: payload)
+            content = nil
+        } else if try c.decodeIfPresent(String.self, forKey: .occurredAt) != nil {
+            sealed = nil
+            content = TransactionSyncContent(
+                accountID: try c.decodeIfPresent(String.self, forKey: .accountID) ?? "",
+                merchant: try c.decodeIfPresent(String.self, forKey: .merchant) ?? "",
+                rawDescription: try c.decodeIfPresent(String.self, forKey: .rawDescription) ?? "",
+                amountMinor: try c.decodeFlexibleInt(forKey: .amountMinor),
+                currency: (try c.decodeIfPresent(String.self, forKey: .currency) ?? "GBP").trimmingCharacters(in: .whitespaces),
+                direction: try c.decodeIfPresent(String.self, forKey: .direction) ?? "debit",
+                bankCategory: try c.decodeIfPresent(String.self, forKey: .bankCategory) ?? "",
+                category: try c.decodeIfPresent(String.self, forKey: .category) ?? "other",
+                occurredAt: try c.decodeISODate(forKey: .occurredAt),
+                hasTime: try c.decodeIfPresent(Bool.self, forKey: .hasTime) ?? false,
+                isPending: try c.decodeIfPresent(Bool.self, forKey: .isPending) ?? false
+            )
+        } else {
+            sealed = nil
+            content = nil
+        }
     }
 
-    /// Every column is always written (nulls included): PostgREST bulk upserts need identical keys
-    /// in every object. `updated_at` is never sent; the server trigger owns it.
+    /// Only sealed rows can be encoded: uploading plaintext is impossible by construction. Every
+    /// column is always written (nulls included), because PostgREST bulk upserts need identical
+    /// keys in every object. `updated_at` is never sent; the server trigger owns it.
     public func encode(to encoder: Encoder) throws {
+        guard let sealed else {
+            throw EncodingError.invalidValue(self, .init(codingPath: encoder.codingPath,
+                                                         debugDescription: "Refusing to upload an unencrypted transaction row."))
+        }
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(userID.uuidString.lowercased(), forKey: .userID)
         try c.encode(id, forKey: .id)
-        try c.encode(accountID, forKey: .accountID)
-        try c.encode(merchant, forKey: .merchant)
-        try c.encode(rawDescription, forKey: .rawDescription)
-        try c.encode(amountMinor, forKey: .amountMinor)
-        try c.encode(currency, forKey: .currency)
-        try c.encode(direction, forKey: .direction)
-        try c.encode(bankCategory, forKey: .bankCategory)
-        try c.encode(category, forKey: .category)
-        try c.encode(ISO8601.string(from: occurredAt), forKey: .occurredAt)
-        try c.encode(hasTime, forKey: .hasTime)
-        try c.encode(isPending, forKey: .isPending)
+        try c.encode(sealed.keyID, forKey: .keyID)
+        try c.encode(sealed.ciphertext, forKey: .payload)
         try c.encode(deletedAt.map(ISO8601.string(from:)), forKey: .deletedAt)
+        for column in Self.legacyColumns {
+            try c.encodeNil(forKey: column)
+        }
     }
 }
 
-/// `public.visits`.
-public struct VisitSyncRow: SyncRow, Equatable {
-    public var userID: UUID
-    public var id: String
+/// What a visit row holds once decrypted. Calendar bookkeeping is deliberately absent: it
+/// describes this device's Google calendar and never leaves the device.
+public struct VisitSyncContent: Codable, Equatable, Sendable {
     public var arrival: Date
     public var departure: Date?
     public var latitude: Double
@@ -121,18 +180,9 @@ public struct VisitSyncRow: SyncRow, Equatable {
     public var placeCategory: String?
     public var isNamedPlace: Bool
     public var isResolved: Bool
-    public var calendarEventID: String?
-    public var calendarContentHash: String?
-    public var calendarSyncedAt: Date?
-    public var updatedAt: String?
-    public var deletedAt: Date?
 
-    public init(userID: UUID, id: String, arrival: Date, departure: Date?, latitude: Double, longitude: Double,
-                placeName: String?, placeCategory: String?, isNamedPlace: Bool, isResolved: Bool,
-                calendarEventID: String?, calendarContentHash: String?, calendarSyncedAt: Date?,
-                updatedAt: String? = nil, deletedAt: Date? = nil) {
-        self.userID = userID
-        self.id = id
+    public init(arrival: Date, departure: Date?, latitude: Double, longitude: Double, placeName: String?, placeCategory: String?,
+                isNamedPlace: Bool, isResolved: Bool) {
         self.arrival = arrival
         self.departure = departure
         self.latitude = latitude
@@ -141,18 +191,56 @@ public struct VisitSyncRow: SyncRow, Equatable {
         self.placeCategory = placeCategory
         self.isNamedPlace = isNamedPlace
         self.isResolved = isResolved
-        self.calendarEventID = calendarEventID
-        self.calendarContentHash = calendarContentHash
-        self.calendarSyncedAt = calendarSyncedAt
+    }
+}
+
+/// `public.visits`. Only uploaded when the user turns on visit sync.
+public struct VisitSyncRow: SyncRow, Equatable {
+    public static let table = "visits"
+
+    public var userID: UUID
+    public var id: String
+    public var content: VisitSyncContent?
+    public var sealed: SealedPayload?
+    public var updatedAt: String?
+    public var deletedAt: Date?
+
+    public init(userID: UUID, id: String, content: VisitSyncContent?, sealed: SealedPayload? = nil,
+                updatedAt: String? = nil, deletedAt: Date? = nil) {
+        self.userID = userID
+        self.id = id
+        self.content = content
+        self.sealed = sealed
         self.updatedAt = updatedAt
         self.deletedAt = deletedAt
     }
 
+    public var isLegacyPlaintext: Bool { sealed == nil && content != nil }
+
     public var cursorID: String? { id }
+
+    public func sealing(with key: SyncKey) throws -> VisitSyncRow {
+        guard let content else { throw SyncCryptoError.nothingToSeal }
+        var copy = self
+        copy.sealed = try SyncCipher.seal(content, table: Self.table, userID: userID, rowID: id, key: key)
+        return copy
+    }
+
+    public func opening(with key: SyncKey) throws -> VisitSyncRow {
+        guard let sealed else { return self }
+        var copy = self
+        copy.content = try SyncCipher.open(VisitSyncContent.self, from: sealed, table: Self.table, userID: userID, rowID: id, key: key)
+        return copy
+    }
 
     enum CodingKeys: String, CodingKey {
         case userID = "user_id"
         case id
+        case keyID = "key_id"
+        case payload
+        case updatedAt = "updated_at"
+        case deletedAt = "deleted_at"
+        // Legacy plaintext columns.
         case arrival
         case departure
         case latitude
@@ -164,45 +252,82 @@ public struct VisitSyncRow: SyncRow, Equatable {
         case calendarEventID = "calendar_event_id"
         case calendarContentHash = "calendar_content_hash"
         case calendarSyncedAt = "calendar_synced_at"
-        case updatedAt = "updated_at"
-        case deletedAt = "deleted_at"
     }
+
+    static let legacyColumns: [CodingKeys] = [.arrival, .departure, .latitude, .longitude, .placeName, .placeCategory, .isNamedPlace,
+                                             .isResolved, .calendarEventID, .calendarContentHash, .calendarSyncedAt]
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         userID = try c.decode(UUID.self, forKey: .userID)
         id = try c.decode(String.self, forKey: .id)
-        arrival = try c.decodeISODate(forKey: .arrival)
-        departure = try c.decodeISODateIfPresent(forKey: .departure)
-        latitude = try c.decode(Double.self, forKey: .latitude)
-        longitude = try c.decode(Double.self, forKey: .longitude)
-        placeName = try c.decodeIfPresent(String.self, forKey: .placeName)
-        placeCategory = try c.decodeIfPresent(String.self, forKey: .placeCategory)
-        isNamedPlace = try c.decodeIfPresent(Bool.self, forKey: .isNamedPlace) ?? false
-        isResolved = try c.decodeIfPresent(Bool.self, forKey: .isResolved) ?? false
-        calendarEventID = try c.decodeIfPresent(String.self, forKey: .calendarEventID)
-        calendarContentHash = try c.decodeIfPresent(String.self, forKey: .calendarContentHash)
-        calendarSyncedAt = try c.decodeISODateIfPresent(forKey: .calendarSyncedAt)
         updatedAt = try c.decodeIfPresent(String.self, forKey: .updatedAt)
         deletedAt = try c.decodeISODateIfPresent(forKey: .deletedAt)
+        if let payload = try c.decodeIfPresent(String.self, forKey: .payload) {
+            sealed = SealedPayload(keyID: try c.decodeIfPresent(String.self, forKey: .keyID) ?? "", ciphertext: payload)
+            content = nil
+        } else if let latitude = try c.decodeIfPresent(Double.self, forKey: .latitude),
+                  let longitude = try c.decodeIfPresent(Double.self, forKey: .longitude) {
+            sealed = nil
+            content = VisitSyncContent(
+                arrival: try c.decodeISODate(forKey: .arrival),
+                departure: try c.decodeISODateIfPresent(forKey: .departure),
+                latitude: latitude,
+                longitude: longitude,
+                placeName: try c.decodeIfPresent(String.self, forKey: .placeName),
+                placeCategory: try c.decodeIfPresent(String.self, forKey: .placeCategory),
+                isNamedPlace: try c.decodeIfPresent(Bool.self, forKey: .isNamedPlace) ?? false,
+                isResolved: try c.decodeIfPresent(Bool.self, forKey: .isResolved) ?? false
+            )
+        } else {
+            sealed = nil
+            content = nil
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let sealed else {
+            throw EncodingError.invalidValue(self, .init(codingPath: encoder.codingPath,
+                                                         debugDescription: "Refusing to upload an unencrypted visit row."))
+        }
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(userID.uuidString.lowercased(), forKey: .userID)
+        try c.encode(id, forKey: .id)
+        try c.encode(sealed.keyID, forKey: .keyID)
+        try c.encode(sealed.ciphertext, forKey: .payload)
+        try c.encode(deletedAt.map(ISO8601.string(from:)), forKey: .deletedAt)
+        for column in Self.legacyColumns {
+            try c.encodeNil(forKey: column)
+        }
+    }
+}
+
+/// `public.sync_keys`: which key the account's rows are encrypted with (its id only; the key
+/// itself never leaves the user's devices and iCloud Keychain).
+public struct SyncKeyRecord: Codable, Equatable, Sendable {
+    public var userID: UUID
+    public var keyID: String
+
+    public init(userID: UUID, keyID: String) {
+        self.userID = userID
+        self.keyID = keyID
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case userID = "user_id"
+        case keyID = "key_id"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        userID = try c.decode(UUID.self, forKey: .userID)
+        keyID = try c.decode(String.self, forKey: .keyID)
     }
 
     public func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(userID.uuidString.lowercased(), forKey: .userID)
-        try c.encode(id, forKey: .id)
-        try c.encode(ISO8601.string(from: arrival), forKey: .arrival)
-        try c.encode(departure.map(ISO8601.string(from:)), forKey: .departure)
-        try c.encode(latitude, forKey: .latitude)
-        try c.encode(longitude, forKey: .longitude)
-        try c.encode(placeName, forKey: .placeName)
-        try c.encode(placeCategory, forKey: .placeCategory)
-        try c.encode(isNamedPlace, forKey: .isNamedPlace)
-        try c.encode(isResolved, forKey: .isResolved)
-        try c.encode(calendarEventID, forKey: .calendarEventID)
-        try c.encode(calendarContentHash, forKey: .calendarContentHash)
-        try c.encode(calendarSyncedAt.map(ISO8601.string(from:)), forKey: .calendarSyncedAt)
-        try c.encode(deletedAt.map(ISO8601.string(from:)), forKey: .deletedAt)
+        try c.encode(keyID, forKey: .keyID)
     }
 }
 
@@ -213,13 +338,18 @@ public struct SyncedSettings: Codable, Equatable, Sendable {
     public var onlyNamedPlaces: Bool
     public var minimumVisitMinutes: Int
     public var aiAssistant: Bool
+    /// Upload visits (encrypted) to the account. Account-wide, off unless the user turns it on.
+    /// Settings written by older app versions lack this key, which reads as off.
+    public var visitSync: Bool
 
-    public init(locationLogging: Bool, calendarWriting: Bool, onlyNamedPlaces: Bool, minimumVisitMinutes: Int, aiAssistant: Bool) {
+    public init(locationLogging: Bool, calendarWriting: Bool, onlyNamedPlaces: Bool, minimumVisitMinutes: Int, aiAssistant: Bool,
+                visitSync: Bool = false) {
         self.locationLogging = locationLogging
         self.calendarWriting = calendarWriting
         self.onlyNamedPlaces = onlyNamedPlaces
         self.minimumVisitMinutes = minimumVisitMinutes
         self.aiAssistant = aiAssistant
+        self.visitSync = visitSync
     }
 
     /// Missing keys (written by an older or newer app) fall back to the app's defaults.
@@ -230,10 +360,11 @@ public struct SyncedSettings: Codable, Equatable, Sendable {
         onlyNamedPlaces = try c.decodeIfPresent(Bool.self, forKey: .onlyNamedPlaces) ?? true
         minimumVisitMinutes = try c.decodeIfPresent(Int.self, forKey: .minimumVisitMinutes) ?? 5
         aiAssistant = try c.decodeIfPresent(Bool.self, forKey: .aiAssistant) ?? false
+        visitSync = try c.decodeIfPresent(Bool.self, forKey: .visitSync) ?? false
     }
 
     enum CodingKeys: String, CodingKey {
-        case locationLogging, calendarWriting, onlyNamedPlaces, minimumVisitMinutes, aiAssistant
+        case locationLogging, calendarWriting, onlyNamedPlaces, minimumVisitMinutes, aiAssistant, visitSync
     }
 }
 

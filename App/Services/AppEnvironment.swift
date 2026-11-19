@@ -17,6 +17,8 @@ final class AppEnvironment {
     let modelContainer: ModelContainer
     let defaults: UserDefaults
     let secureStore: SecureStoring
+    /// End-to-end sync keys (iCloud Keychain in the app, so the user's other devices get them).
+    let syncKeyStore: SecureStoring
     let bankService: BankService
     let transactionRepository: TransactionRepository
     let transactionSync: TransactionSyncService
@@ -38,6 +40,8 @@ final class AppEnvironment {
     /// PostgREST / Edge Functions for the signed-in user. Nil without a backend (not configured,
     /// UI tests, developer account).
     let cloudREST: SupabaseRESTClient?
+    /// Sign-in or the paywall, when presented (see `requestPro()`).
+    var accountSheet: AccountSheet?
 
     init(
         configuration: AppConfiguration,
@@ -46,6 +50,7 @@ final class AppEnvironment {
         secureStore: SecureStoring,
         bankService: BankService,
         isUITesting: Bool,
+        syncKeyStore: SecureStoring = InMemorySecureStore(),
         auth injectedAuth: AuthServicing? = nil,
         developerUser: AuthUser? = nil
     ) {
@@ -53,6 +58,7 @@ final class AppEnvironment {
         self.modelContainer = modelContainer
         self.defaults = defaults
         self.secureStore = secureStore
+        self.syncKeyStore = syncKeyStore
         self.bankService = bankService
         self.isUITesting = isUITesting
         transactionRepository = TransactionRepository(container: modelContainer)
@@ -101,8 +107,8 @@ final class AppEnvironment {
             rest: rest,
             defaults: defaults
         )
-        cloudSync = CloudSyncService(rest: rest, transactions: transactionRepository, visits: visitRepository,
-                                     settings: settings, defaults: defaults)
+        cloudSync = CloudSyncService(rest: rest, keys: SyncKeyManager(store: syncKeyStore), transactions: transactionRepository,
+                                     visits: visitRepository, settings: settings, defaults: defaults)
 
         aiProviders = [
             AnthropicProvider(apiKey: { [secureStore] in
@@ -182,6 +188,26 @@ final class AppEnvironment {
         locationLogging.monitor.stopMonitoring()
     }
 
+    /// TrueLayer tokens are exchanged by the `truelayer-token` Edge Function, which holds the
+    /// client secret. Debug builds with a sandbox secret in `Config/Local.xcconfig` may talk to
+    /// TrueLayer directly instead; Release builds can't (no secret, and no direct exchanger).
+    static func makeTokenExchanger(configuration: AppConfiguration, trueLayer: TrueLayerConfiguration) -> TrueLayerTokenExchanging {
+        #if DEBUG
+        if !configuration.trueLayerClientSecret.isEmpty {
+            return DirectTrueLayerTokenExchanger(configuration: trueLayer, clientSecret: configuration.trueLayerClientSecret)
+        }
+        #endif
+        let supabase = SupabaseConfiguration(urlString: configuration.supabaseURL, anonKey: configuration.supabaseAnonKey)
+        guard let endpoint = try? supabase.endpoint("functions/v1/truelayer-token") else {
+            return UnavailableTrueLayerTokenExchanger()
+        }
+        // The public anon key is enough: bank connections don't need a DayLedger account.
+        let anonKey = supabase.anonKey
+        return BackendTrueLayerTokenExchanger(endpoint: endpoint, headers: {
+            ["apikey": anonKey, "Authorization": "Bearer \(anonKey)"]
+        })
+    }
+
     static func makeDefault(processInfo: ProcessInfo = .processInfo) -> AppEnvironment {
         let configuration = AppConfiguration.fromBundle()
 
@@ -220,7 +246,7 @@ final class AppEnvironment {
         )
         let bank = TrueLayerBankService(
             configuration: trueLayer,
-            exchanger: DirectTrueLayerTokenExchanger(configuration: trueLayer, clientSecret: configuration.trueLayerClientSecret),
+            exchanger: makeTokenExchanger(configuration: configuration, trueLayer: trueLayer),
             secureStore: secureStore,
             connectionStore: BankConnectionStore(defaults: defaults)
         )
@@ -230,7 +256,8 @@ final class AppEnvironment {
             defaults: defaults,
             secureStore: secureStore,
             bankService: bank,
-            isUITesting: false
+            isUITesting: false,
+            syncKeyStore: KeychainStore(service: KeychainStore.syncKeyService, synchronizable: true)
         )
     }
 }
