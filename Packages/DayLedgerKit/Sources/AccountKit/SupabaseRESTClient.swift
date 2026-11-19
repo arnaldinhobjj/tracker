@@ -150,16 +150,23 @@ public final class SupabaseRESTClient: @unchecked Sendable {
                                                 hasIDColumn: Bool = true, pageSize: Int = SupabaseRESTClient.pageSize,
                                                 _ body: ([Row], SyncCursor?) async throws -> Void) async throws {
         var position = cursor
-        while true {
+        var more = true
+        while more {
             let page = try await fetchPage(type, from: table, after: position, hasIDColumn: hasIDColumn, limit: pageSize)
-            if let last = page.last, let updatedAt = last.updatedAt {
-                position = SyncCursor(updatedAt: updatedAt, id: hasIDColumn ? last.cursorID : nil)
-            }
+            (position, more) = Self.advance(position, after: page, hasIDColumn: hasIDColumn, pageSize: pageSize)
             try await body(page, position)
-            if page.count < pageSize { break }
-            // A full page without a usable cursor would loop forever.
-            if page.last?.updatedAt == nil { break }
         }
+    }
+
+    /// The cursor after `page`, and whether another page may follow (a short page is the last; so is
+    /// a full page without a usable cursor, which would otherwise loop forever).
+    public static func advance<Row: SyncRow>(_ cursor: SyncCursor?, after page: [Row], hasIDColumn: Bool = true,
+                                             pageSize: Int = SupabaseRESTClient.pageSize) -> (cursor: SyncCursor?, hasMore: Bool) {
+        guard let last = page.last, let updatedAt = last.updatedAt else {
+            return (cursor, false)
+        }
+        let next = SyncCursor(updatedAt: updatedAt, id: hasIDColumn ? last.cursorID : nil)
+        return (next, page.count >= pageSize)
     }
 
     /// `POST /rest/v1/rpc/<name>`.

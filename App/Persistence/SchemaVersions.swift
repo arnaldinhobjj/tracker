@@ -96,7 +96,7 @@ enum DayLedgerMigrationPlan: SchemaMigrationPlan {
 
     /// Adds the new columns and entity (lightweight), then sets `needsCloudPush` from what V1 knew:
     /// a row needs uploading when it changed after it last matched the cloud, or never did.
-    static let v1ToV2 = MigrationStage.custom(
+    static var v1ToV2: MigrationStage { .custom(
         fromVersion: SchemaV1.self,
         toVersion: SchemaV2.self,
         willMigrate: nil,
@@ -109,5 +109,5 @@ enum DayLedgerMigrationPlan: SchemaMigrationPlan {
             }
             try context.save()
         }
-    )
+    ) }
 }

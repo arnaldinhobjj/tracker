@@ -156,7 +156,7 @@ Details:
 
 ## Architecture
 
-MVVM with async/await. Feature logic lives in a local Swift package, split into modules with one responsibility each:
+MVVM with async/await, in Swift 6 language mode (complete data-race checking) for the app, the widget and the package. Feature logic lives in a local Swift package, split into modules with one responsibility each:
 
 ```text
 Packages/DayLedgerKit/

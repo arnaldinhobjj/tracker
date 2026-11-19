@@ -142,7 +142,16 @@ public final class SystemEventStore: EventStoring {
     }
 
     public func requestAccess() async throws -> Bool {
-        try await store.requestFullAccessToEvents()
+        // The completion-handler form keeps the (non-Sendable) store on the main actor.
+        try await withCheckedThrowingContinuation { continuation in
+            store.requestFullAccessToEvents { granted, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume(returning: granted)
+                }
+            }
+        }
     }
 
     public func calendarExists(id: String) -> Bool {
