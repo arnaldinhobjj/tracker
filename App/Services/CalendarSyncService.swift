@@ -130,7 +130,8 @@ final class CalendarSyncService {
                 written += 1
             }
             lastSync = now
-            lastResult = written == 0 ? "Up to date" : "Updated \(written) event\(written == 1 ? "" : "s")"
+            // Plural forms come from the String Catalog ("Updated %lld events").
+            lastResult = written == 0 ? String(localized: "Up to date") : String(localized: "Updated \(written) events")
             error = nil
         } catch {
             // Whatever wasn't written keeps its old hash and is retried on the next sync.

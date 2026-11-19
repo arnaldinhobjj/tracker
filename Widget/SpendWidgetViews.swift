@@ -71,7 +71,8 @@ private struct MediumView: View {
                     .minimumScaleFactor(0.5)
                     .lineLimit(1)
                     .privacySensitive()
-                Text("\(snapshot.transactionCount) transaction\(snapshot.transactionCount == 1 ? "" : "s")")
+                // Plural forms come from the String Catalog ("%lld transactions").
+                Text("\(snapshot.transactionCount) transactions")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -89,6 +90,7 @@ private struct MediumView: View {
                             .font(.caption)
                             .foregroundStyle(.tint)
                             .frame(width: 16)
+                            .accessibilityHidden(true)
                         VStack(alignment: .leading, spacing: 0) {
                             Text(item.merchant).font(.caption).lineLimit(1)
                             if let time = item.time {
@@ -153,6 +155,9 @@ private struct CircularView: View {
                     .privacySensitive()
             }
         }
+        // The rounded "25" isn't meaningful on its own: read the exact amount.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text("Spent today, \(total(snapshot))"))
     }
 
     /// "£25" or "£1.2k": the circular widget only fits a few characters.
@@ -193,10 +198,13 @@ private struct NotConnectedView: View {
                 AccessoryWidgetBackground()
                 Image(systemName: "sterlingsign")
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text("DayLedger: open to connect your bank"))
         default:
             VStack(alignment: .leading, spacing: 4) {
                 Image(systemName: "building.columns")
                     .foregroundStyle(.tint)
+                    .accessibilityHidden(true)
                 Text("Open DayLedger to connect your bank")
                     .font(.caption)
             }

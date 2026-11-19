@@ -82,7 +82,7 @@ private struct VisitRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
-                Text(row.visit.placeName ?? "Looking up place…")
+                (row.visit.placeName.map { Text(verbatim: $0) } ?? Text("Looking up place…"))
                     .font(.body.weight(.medium))
                 Spacer()
                 if row.synced {

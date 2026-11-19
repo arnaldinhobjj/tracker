@@ -14,8 +14,9 @@ final class DayLedgerUITests: XCTestCase {
 
         let total = app.staticTexts["todayTotal"]
         XCTAssertTrue(total.waitForExistence(timeout: 15))
-        let expectation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", "£25.52"), object: total)
-        XCTAssertEqual(XCTWaiter().wait(for: [expectation], timeout: 15), .completed, "Total was \(total.label)")
+        // VoiceOver reads "Spent today, £25.52": the amount is the element's value.
+        let expectation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "£25.52"), object: total)
+        XCTAssertEqual(XCTWaiter().wait(for: [expectation], timeout: 15), .completed, "Total was \(String(describing: total.value))")
         XCTAssertTrue(app.descendants(matching: .any)["transactionRow"].firstMatch.exists)
     }
 
@@ -55,6 +56,50 @@ final class DayLedgerUITests: XCTestCase {
 
         app.tabBars.buttons["Suggest"].tap()
         XCTAssertTrue(app.staticTexts["AI assistant is off"].waitForExistence(timeout: 5))
+    }
+
+    /// Xcode's accessibility audit on each tab: every element has a description VoiceOver can
+    /// read, text scales with Dynamic Type, and text has enough contrast.
+    @MainActor
+    func testTabsPassTheAccessibilityAudit() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-UITestMockData"]
+        app.launch()
+        XCTAssertTrue(app.staticTexts["todayTotal"].waitForExistence(timeout: 15))
+
+        var problems: [String] = []
+        for tab in ["Today", "Places", "Suggest", "Settings"] {
+            let tabButton = app.tabBars.buttons[tab]
+            tabButton.tap()
+            // Audit the settled screen: during the tab transition content is dimmed, which the
+            // audit reports as contrast failures on ordinary text.
+            let selected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isSelected == true"), object: tabButton)
+            XCTAssertEqual(XCTWaiter().wait(for: [selected], timeout: 5), .completed)
+            Thread.sleep(forTimeInterval: 1)
+            try app.performAccessibilityAudit(for: [.sufficientElementDescription, .dynamicType, .contrast]) { issue in
+                // Issues in system-drawn chrome (no element of ours) aren't ours to fix.
+                guard let element = issue.element,
+                      element.elementType != .tabBar, element.elementType != .navigationBar else { return true }
+                // iOS's standard secondary text colour (Apple's own captions and footers) is rated
+                // "nearly passed"; real contrast failures are still reported.
+                if issue.auditType == .contrast && issue.compactDescription.localizedCaseInsensitiveContains("nearly") {
+                    return true
+                }
+                // Text scrolled under the translucent tab bar is measured against the bar's blur.
+                if issue.auditType == .contrast && element.frame.intersects(app.tabBars.firstMatch.frame) {
+                    return true
+                }
+                // A plain Text in a standard Form button is reported as "partially" supporting
+                // Dynamic Type (the row's system styling); fixed-size text is still reported.
+                if issue.auditType == .dynamicType && issue.compactDescription.localizedCaseInsensitiveContains("partially") {
+                    return true
+                }
+                problems.append("\(tab): \(issue.compactDescription) – \(element.elementType.rawValue) label=\"\(element.label)\" id=\"\(element.identifier)\"")
+                return true
+            }
+        }
+        // One failure listing every issue, with the element, so it can be fixed from the CI log.
+        XCTAssertTrue(problems.isEmpty, problems.joined(separator: "; "))
     }
 
     /// Lists render lazily, so off-screen rows don't exist until scrolled to (small simulators).

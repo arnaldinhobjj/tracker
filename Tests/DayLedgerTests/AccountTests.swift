@@ -1,6 +1,7 @@
 import AccountKit
 import BankKit
 import SecureStore
+import Networking
 import XCTest
 @testable import DayLedger
 
@@ -179,6 +180,13 @@ final class TokenExchangerSelectionTests: XCTestCase {
         let exchanger = AppEnvironment.makeTokenExchanger(configuration: configuration(secret: "", supabaseURL: ""),
                                                           trueLayer: TrueLayerConfiguration(clientID: "sandbox-1"))
         XCTAssertTrue(exchanger is UnavailableTrueLayerTokenExchanger)
+    }
+
+    func testAppAttestIsUsedOnlyWithABackend() {
+        let defaults = UserDefaults(suiteName: "tests.\(UUID().uuidString)")!
+        XCTAssertTrue(AppEnvironment.makeAttester(configuration: configuration(secret: "", supabaseURL: "https://abc.supabase.co"),
+                                                  defaults: defaults) is AppAttestClient)
+        XCTAssertNil(AppEnvironment.makeAttester(configuration: configuration(secret: "", supabaseURL: ""), defaults: defaults))
     }
 
     #if DEBUG

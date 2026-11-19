@@ -9,7 +9,7 @@ stores ciphertext. The binding spec is [`docs/backend-contract.md`](../docs/back
 supabase/
   config.toml                         local stack (`supabase start`) + function JWT settings
   migrations/                         schema, RLS, has_active_entitlement(), grants
-  tests/database/*.test.sql           pgTAP: RLS isolation, entitlement gating, cascade deletes, encryption, AI quota
+  tests/database/*.test.sql           pgTAP: RLS isolation, entitlement gating, cascade deletes, encryption, AI quota, App Attest
   functions/
     verify-subscription/              POST, user JWT: verify a StoreKit 2 transaction, store it
     entitlement/                      GET,  user JWT: current entitlement
@@ -17,6 +17,7 @@ supabase/
     delete-account/                   POST, user JWT: delete the auth user (cascades)
     truelayer-token/                  POST, anon key: TrueLayer code exchange / refresh with the client secret
     ai-suggest/                       POST, user JWT + Pro: AI event suggestions (Anthropic), daily limit
+    app-attest/                       POST, anon key: register an App Attest key (challenge, attestation)
     _shared/                          JWS verification, App Store Server API, status mapping, …
 ```
 
@@ -64,6 +65,10 @@ supabase secrets set \
 
 supabase secrets set ANTHROPIC_API_KEY=<key from console.anthropic.com>
 # Optional: ANTHROPIC_MODEL (default claude-opus-5-5), AI_DAILY_LIMIT (default 20 per user per day)
+
+supabase secrets set APP_ATTEST_APP_ID=<Team ID>.<bundle id>   # e.g. ABCDE12345.app.dayledger
+# Optional: APP_ATTEST_MODE (off | report | enforce; default report),
+#           APP_ATTEST_ALLOW_DEVELOPMENT=true (accept keys from Xcode/development builds)
 ```
 
 | Secret | Where it comes from |
@@ -77,6 +82,9 @@ supabase secrets set ANTHROPIC_API_KEY=<key from console.anthropic.com>
 | `TRUELAYER_CLIENT_SECRET` | TrueLayer console → App settings. Lives only here; never in the app or the repo. Required by `truelayer-token`. |
 | `TRUELAYER_ENVIRONMENT` | `sandbox` (default) or `live`. |
 | `ANTHROPIC_API_KEY` | console.anthropic.com → API keys. Required by `ai-suggest`. Billed to DayLedger's Anthropic account; `AI_DAILY_LIMIT` caps each user. |
+| `APP_ATTEST_APP_ID` | `<Team ID>.<bundle id>`: Apple Developer → Membership → Team ID, plus the app's bundle ID. Without it App Attest is off. |
+| `APP_ATTEST_MODE` | `report` (default): check and log, never refuse. `enforce`: `truelayer-token` and `ai-suggest` refuse requests without a valid App Attest signature (simulators and app versions before App Attest stop working against that backend). `off`: don't check. |
+| `APP_ATTEST_ALLOW_DEVELOPMENT` | `true` to accept keys from development-signed builds (Xcode installs). Leave unset in production. |
 | `TRUELAYER_REDIRECT_URI` | Optional; default `dayledger://truelayer-callback`. Must match the app and the TrueLayer console. |
 
 `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` are provided automatically.

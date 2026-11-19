@@ -41,5 +41,6 @@ let package = Package(
         .testTarget(name: "SharedModelsTests", dependencies: ["SharedModels"]),
         .testTarget(name: "BankKitTests", dependencies: ["BankKit", "SharedModels", "Networking", "SecureStore"]),
         .testTarget(name: "AccountKitTests", dependencies: ["AccountKit", "Networking", "SecureStore"]),
+        .testTarget(name: "NetworkingTests", dependencies: ["Networking"]),
     ]
 )

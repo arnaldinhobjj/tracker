@@ -371,7 +371,7 @@ enum BackendError {
             return UserFacingError(title: "Couldn't verify the purchase", message: "The App Store receipt couldn't be verified. Try \"Restore purchases\".", action: .retry)
         default:
             return UserFacingError(title: "Couldn't verify the purchase",
-                                   message: message ?? "Please try \"Restore purchases\" in a moment.", action: .retry)
+                                   message: message ?? String(localized: "Please try \"Restore purchases\" in a moment."), action: .retry)
         }
     }
 }

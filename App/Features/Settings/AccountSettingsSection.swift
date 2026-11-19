@@ -48,7 +48,7 @@ struct AccountSettingsSection: View {
     @ViewBuilder
     private func signedIn(_ user: AuthUser) -> some View {
         Section {
-            LabeledContent("Email", value: user.email ?? "Hidden by Apple")
+            LabeledContent("Email", value: user.email ?? String(localized: "Hidden by Apple"))
             LabeledContent("Plan", value: planDescription)
             if let planDate {
                 LabeledContent(planDate.label, value: planDate.date.formatted(date: .abbreviated, time: .omitted))
