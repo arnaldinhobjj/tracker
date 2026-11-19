@@ -1,18 +1,21 @@
 # DayLedger backend (Supabase)
 
-Postgres schema + row-level security, Supabase Auth and four Edge Functions that verify the
-App Store subscription. The binding spec is [`docs/backend-contract.md`](../docs/backend-contract.md).
+Postgres schema + row-level security, Supabase Auth, four Edge Functions that verify the
+App Store subscription, and one that exchanges TrueLayer tokens so the client secret never ships
+in the app. Synced transactions and visits are end-to-end encrypted by the app: the database
+stores ciphertext. The binding spec is [`docs/backend-contract.md`](../docs/backend-contract.md).
 
 ```
 supabase/
   config.toml                         local stack (`supabase start`) + function JWT settings
   migrations/                         schema, RLS, has_active_entitlement(), grants
-  tests/database/*.test.sql           pgTAP: RLS isolation, entitlement gating, cascade deletes
+  tests/database/*.test.sql           pgTAP: RLS isolation, entitlement gating, cascade deletes, encryption
   functions/
     verify-subscription/              POST, user JWT: verify a StoreKit 2 transaction, store it
     entitlement/                      GET,  user JWT: current entitlement
     app-store-notifications/          POST, no JWT: App Store Server Notifications V2
     delete-account/                   POST, user JWT: delete the auth user (cascades)
+    truelayer-token/                  POST, anon key: TrueLayer code exchange / refresh with the client secret
     _shared/                          JWS verification, App Store Server API, status mapping, …
 ```
 
@@ -29,11 +32,14 @@ Nothing secret lives in this repo. You need the [Supabase CLI](https://supabase.
    supabase login
    supabase link --project-ref <ref>          # <ref> is in the project URL
    supabase db push                           # applies supabase/migrations
-   supabase functions deploy                  # deploys all four functions
+   supabase functions deploy                  # deploys all five functions
    ```
 
    `supabase functions deploy` reads `config.toml`, so `app-store-notifications` is deployed
    with JWT verification off (Apple calls it without a Supabase token) and the others with it on.
+   `truelayer-token` keeps verification on: the app calls it with the anon key, which is a valid
+   JWT for projects using the legacy anon key. (If your project only has the new
+   `sb_publishable_…` keys, deploy it with `--no-verify-jwt`; the secret is still never exposed.)
    If you deploy one function by name, pass `--no-verify-jwt` for `app-store-notifications` only.
 
 3. **Project Settings → API**: copy the project URL and the anon (publishable) key into the iOS
@@ -49,6 +55,11 @@ supabase secrets set \
   APPLE_KEY_ID=<key id> \
   APPLE_APP_APPLE_ID=<numeric app id> \
   APPLE_PRIVATE_KEY="$(cat SubscriptionKey_XXXXXXXXXX.p8)"
+
+supabase secrets set \
+  TRUELAYER_CLIENT_ID=<client id> \
+  TRUELAYER_CLIENT_SECRET=<client secret> \
+  TRUELAYER_ENVIRONMENT=sandbox            # or live, once TrueLayer approves production
 ```
 
 | Secret | Where it comes from |
@@ -58,6 +69,10 @@ supabase secrets set \
 | `APPLE_KEY_ID` | Same page → **Generate In-App Purchase Key** → the key's ID. |
 | `APPLE_PRIVATE_KEY` | The `.p8` file downloaded when you created that key (one download only). Paste the whole file, including the BEGIN/END lines. |
 | `APPLE_APP_APPLE_ID` | App Store Connect → your app → App Information → **Apple ID** (a number). Production notifications for another app id are ignored. |
+| `TRUELAYER_CLIENT_ID` | TrueLayer console → App settings. Must equal the app's `TRUELAYER_CLIENT_ID`. Required by `truelayer-token`. |
+| `TRUELAYER_CLIENT_SECRET` | TrueLayer console → App settings. Lives only here; never in the app or the repo. Required by `truelayer-token`. |
+| `TRUELAYER_ENVIRONMENT` | `sandbox` (default) or `live`. |
+| `TRUELAYER_REDIRECT_URI` | Optional; default `dayledger://truelayer-callback`. Must match the app and the TrueLayer console. |
 
 `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` are provided automatically.
 Without the three API secrets (`ISSUER_ID`, `KEY_ID`, `PRIVATE_KEY`) `verify-subscription`

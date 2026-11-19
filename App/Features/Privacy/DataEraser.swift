@@ -81,8 +81,14 @@ struct DataEraser {
         }
         environment.settings.resetToDefaults()
 
-        // 6. The account no longer exists: forget it on this device.
+        // 6. The account no longer exists: forget it on this device, including its end-to-end
+        //    sync key (removed from iCloud Keychain, so from the user's other devices too).
         if hasCloudAccount {
+            do {
+                try environment.syncKeyStore.removeAll()
+            } catch {
+                report.failures.append("Sync key: \(error.localizedDescription)")
+            }
             environment.subscriptions.reset()
             await account.signOut()
         }

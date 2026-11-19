@@ -108,7 +108,7 @@ final class VisitRepository {
         try? context.save()
     }
 
-    /// Applies pulled rows (last write wins by server time). Returns true if anything changed.
+    /// Applies pulled, decrypted rows (last write wins by server time). Returns true if anything changed.
     @discardableResult
     func applyRemote(_ rows: [VisitSyncRow], now: Date = Date()) throws -> Bool {
         guard !rows.isEmpty else { return false }
@@ -129,23 +129,28 @@ final class VisitRepository {
                 }
                 continue
             }
-            let visit = local ?? StoredVisit(id: row.id, arrival: row.arrival, departure: row.departure, latitude: row.latitude, longitude: row.longitude)
+            // Still encrypted (sealed with a key this device lacks): nothing to apply.
+            guard let content = row.content else { continue }
+            let visit = local ?? StoredVisit(id: row.id, arrival: content.arrival, departure: content.departure,
+                                             latitude: content.latitude, longitude: content.longitude)
             if local == nil {
                 context.insert(visit)
                 byID[row.id] = visit
             }
-            visit.arrival = row.arrival
-            visit.departure = row.departure
-            visit.latitude = row.latitude
-            visit.longitude = row.longitude
-            visit.placeName = row.placeName
-            visit.placeCategory = row.placeCategory
-            visit.isNamedPlace = row.isNamedPlace
-            visit.isResolved = row.isResolved
+            visit.arrival = content.arrival
+            visit.departure = content.departure
+            visit.latitude = content.latitude
+            visit.longitude = content.longitude
+            visit.placeName = content.placeName
+            visit.placeCategory = content.placeCategory
+            visit.isNamedPlace = content.isNamedPlace
+            visit.isResolved = content.isResolved
             // Calendar acknowledgements stay local: they describe this device's Google calendar,
             // which may be a different calendar (or account) from the device that pushed the row.
             visit.updatedAt = now
-            visit.cloudSyncedAt = now
+            // Plaintext rows from older versions stay "not synced": with visit sync on they are
+            // uploaded again encrypted, replacing the plaintext copy.
+            visit.cloudSyncedAt = row.isLegacyPlaintext ? nil : now
             changed = true
         }
         try context.save()

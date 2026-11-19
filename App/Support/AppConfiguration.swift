@@ -4,7 +4,8 @@ import Foundation
 /// No secrets are hard-coded in source; see README "Configuration".
 struct AppConfiguration {
     var trueLayerClientID: String
-    /// Sandbox / development only. Production should exchange tokens on a backend.
+    /// Debug builds only, for sandbox work without a backend. Always empty in Release: the value
+    /// isn't read, and `Config/Release.xcconfig` blanks it so it never reaches Info.plist.
     var trueLayerClientSecret: String
     var trueLayerEnvironment: String
     var googleClientID: String
@@ -23,6 +24,14 @@ struct AppConfiguration {
         return url
     }
 
+    private static func debugOnlyClientSecret(_ value: String) -> String {
+        #if DEBUG
+        return value
+        #else
+        return ""
+        #endif
+    }
+
     static func fromBundle(_ bundle: Bundle = .main) -> AppConfiguration {
         func value(_ key: String) -> String {
             let raw = (bundle.object(forInfoDictionaryKey: key) as? String) ?? ""
@@ -32,7 +41,7 @@ struct AppConfiguration {
         }
         return AppConfiguration(
             trueLayerClientID: value("DLTrueLayerClientID"),
-            trueLayerClientSecret: value("DLTrueLayerClientSecret"),
+            trueLayerClientSecret: debugOnlyClientSecret(value("DLTrueLayerClientSecret")),
             trueLayerEnvironment: value("DLTrueLayerEnvironment"),
             googleClientID: value("DLGoogleClientID"),
             appGroupID: value("DLAppGroupID"),

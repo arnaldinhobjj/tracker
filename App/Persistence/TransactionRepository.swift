@@ -102,11 +102,11 @@ final class TransactionRepository {
         try? context.save()
     }
 
-    /// Applies pulled rows (last write wins by server time; soft-deleted rows are removed).
-    /// Returns true if anything changed.
-    @discardableResult
+    /// Applies pulled, decrypted rows (last write wins by server time; soft-deleted rows are
+    /// removed). Returns true if anything changed.
     /// `pendingDeletionIDs`: rows deleted on this device whose deletion hasn't reached the server
     /// yet. A pulled (older) copy of one must not bring it back.
+    @discardableResult
     func applyRemote(_ rows: [TransactionSyncRow], pendingDeletionIDs: Set<String> = [], now: Date = Date()) throws -> Bool {
         guard !rows.isEmpty else { return false }
         let ids = rows.map(\.id)
@@ -127,13 +127,17 @@ final class TransactionRepository {
                 continue
             }
             if local == nil && pendingDeletionIDs.contains(row.id) { continue }
-            let transaction = row.bankTransaction
+            // Still encrypted (sealed with a key this device lacks): nothing to apply.
+            guard let transaction = row.bankTransaction else { continue }
+            // A plaintext row from an older app version stays "not synced", so it is uploaded
+            // again encrypted, which erases the plaintext copy on the server.
+            let syncedAt: Date? = row.isLegacyPlaintext ? nil : now
             if let local {
                 local.update(from: transaction, at: now)
-                local.cloudSyncedAt = now
+                local.cloudSyncedAt = syncedAt
             } else {
                 let stored = StoredTransaction(transaction, updatedAt: now)
-                stored.cloudSyncedAt = now
+                stored.cloudSyncedAt = syncedAt
                 context.insert(stored)
                 byID[row.id] = stored
             }

@@ -16,20 +16,22 @@ struct PrivacyView: View {
                 PrivacyRow(icon: "building.columns", title: "Bank transactions",
                            detail: "Merchant, amount, time and category for accounts you connect. Read-only: DayLedger cannot move money.")
                 PrivacyRow(icon: "location", title: "Places you visit",
-                           detail: "Only if you turn on location logging. Uses iOS visit detection (not continuous GPS) to record arrival and departure times and a nearby place name.")
+                           detail: "Only if you turn on location logging. Uses iOS visit detection (not continuous GPS) to record arrival and departure times, the visit's coordinates and a nearby place name.")
                 PrivacyRow(icon: "calendar", title: "Calendar",
                            detail: "Only if you sign in with Google. DayLedger writes to its own \"DayLedger\" calendar and reads only free/busy times from your other calendars.")
                 PrivacyRow(icon: "sparkles", title: "AI suggestions (optional)",
                            detail: "Only if you add your own API key and ask for suggestions.")
+                PrivacyRow(icon: "person.crop.circle", title: "Your DayLedger account (optional)",
+                           detail: "Only if you create one: your email address and your DayLedger Pro subscription status. Everything else in DayLedger works without an account.")
             }
 
             Section("Where it goes") {
                 PrivacyRow(icon: "iphone", title: "On this device",
                            detail: "Transactions and visits are stored on your iPhone so DayLedger works offline. Sign-in tokens and API keys are kept in the iOS Keychain and never leave the device except to the service they belong to.")
-                PrivacyRow(icon: "icloud", title: "Your DayLedger account",
-                           detail: "Transactions, visits and settings sync to your account so they survive a new iPhone. They're encrypted in transit and at rest, and only your account can read them. Bank, Google and AI keys are never uploaded.")
+                PrivacyRow(icon: "lock.icloud", title: "Your DayLedger account (DayLedger Pro)",
+                           detail: "If you sign in, transactions sync to your account so they survive a new iPhone. Visits sync only if you turn on visit sync. Both are end-to-end encrypted on your iPhone before upload, with a key kept in your iCloud Keychain: DayLedger's servers store only ciphertext and can't read merchants, amounts, places or coordinates. Your preferences (such as which features are on) are synced unencrypted. Bank, Google and AI keys are never uploaded.")
                 PrivacyRow(icon: "arrow.left.arrow.right", title: "TrueLayer and your bank",
-                           detail: "TrueLayer passes transactions from your bank to the app. Your bank password is entered on your bank's own page, never in DayLedger.")
+                           detail: "TrueLayer passes transactions from your bank straight to the app. Your bank password is entered on your bank's own page, never in DayLedger. When connecting or refreshing access, DayLedger's server adds the app's TrueLayer credentials to the request; it passes the access tokens through without storing or logging them.")
                 PrivacyRow(icon: "calendar.badge.plus", title: "Google Calendar",
                            detail: "Visit entries (place, times, matching spend) are written to your DayLedger calendar in your Google account.")
                 PrivacyRow(icon: "sparkles", title: "AI provider",

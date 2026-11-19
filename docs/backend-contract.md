@@ -11,10 +11,15 @@ Change it here first, then on both sides.
   (App Store Server API + App Store Server Notifications V2). No RevenueCat, no Stripe.
 - **Product:** `app.dayledger.pro.monthly`, group "DayLedger Pro", £4.99/month,
   introductory offer: 7-day free trial (one per Apple ID, managed by Apple).
-- **Cloud data:** everything the app stores (transactions, visits, settings) syncs to the
-  user's account. Protected by TLS, Supabase at-rest encryption and row-level security (each
-  user only ever sees their own rows). **Bank, Google and AI tokens/keys never leave the
-  device** (Keychain only) and have no table.
+- **Local-first:** the app works without an account (Today, widgets, bank connections, Places,
+  calendar diary). An account and DayLedger Pro unlock cloud sync and AI suggestions.
+- **Cloud data:** transactions sync to the user's account; visits only when the user turns on
+  visit sync (account-wide setting, off by default); settings always. Transactions and visits are
+  **end-to-end encrypted** on the device (see "Encryption"): the server stores ciphertext only.
+  Also protected by TLS, Supabase at-rest encryption and row-level security. **Bank, Google and
+  AI tokens/keys never leave the device** (Keychain only) and have no table.
+- **TrueLayer client secret:** lives only in the `truelayer-token` function's secrets. Release
+  builds of the app never contain it.
 - **Gating:** reading your own data needs a signed-in account; *writing* synced data needs an
   active entitlement (trial, active or grace period). Lapsed users can still read and delete.
 
@@ -37,45 +42,68 @@ Created by an `after insert on auth.users` trigger (security definer, `search_pa
 Client: select/update own row.
 
 ### `transactions` — pk `(user_id, id)`
+
+Current app versions write `id`, `key_id`, `payload` and `deleted_at`, and send every other
+column as an explicit null. The plaintext columns are only filled by app versions from before
+end-to-end encryption ("legacy rows"); see "Encryption".
+
 | column | type | notes |
 |---|---|---|
 | id | text | app's transaction id (`<accountID>:<bankTxID>`) |
-| account_id | text | |
-| merchant | text | |
-| raw_description | text | |
-| amount_minor | bigint | pence, always positive |
-| currency | char(3) | e.g. `GBP` |
-| direction | text | check in (`debit`, `credit`) |
-| bank_category | text | |
-| category | text | SpendCategory raw value (`groceries`, `eatingOut`, `coffee`, `transport`, `shopping`, `bills`, `entertainment`, `health`, `travel`, `cash`, `transfer`, `income`, `other`) — no check constraint, so new categories don't need a migration |
-| occurred_at | timestamptz | |
-| has_time | boolean | |
-| is_pending | boolean | |
+| key_id | text null | fingerprint of the sealing key, 32 lowercase hex; set iff `payload` is |
+| payload | text null | sealed content, `v1.<base64 AES-GCM combined>`, ≤ 16 KiB |
+| account_id | text null | legacy only |
+| merchant | text null | legacy only |
+| raw_description | text null | legacy only |
+| amount_minor | bigint null | legacy only; pence, always positive |
+| currency | char(3) null | legacy only; e.g. `GBP` |
+| direction | text null | legacy only; check in (`debit`, `credit`) |
+| bank_category | text null | legacy only |
+| category | text null | legacy only; SpendCategory raw value (`groceries`, `eatingOut`, `coffee`, `transport`, `shopping`, `bills`, `entertainment`, `health`, `travel`, `cash`, `transfer`, `income`, `other`) — no check constraint, so new categories don't need a migration |
+| occurred_at | timestamptz null | legacy only |
+| has_time | boolean null | legacy only |
+| is_pending | boolean null | legacy only |
 | updated_at | timestamptz | trigger-set |
 | deleted_at | timestamptz null | soft delete |
 
-Index: `(user_id, updated_at)`, `(user_id, occurred_at desc)`.
+Index: `(user_id, updated_at)`, `(user_id, occurred_at desc)` (the latter only covers legacy rows).
+Constraints: a row is either encrypted (`payload` + `key_id`, every plaintext column null) or a
+complete legacy row.
 
 ### `visits` — pk `(user_id, id)`
+
+Only written when visit sync is on. Same shape rules as `transactions`.
+
 | column | type |
 |---|---|
 | id | text (UUID string from the app) |
-| arrival | timestamptz |
-| departure | timestamptz null |
-| latitude, longitude | double precision |
-| place_name, place_category | text null |
-| is_named_place, is_resolved | boolean |
-| calendar_event_id, calendar_content_hash | text null |
-| calendar_synced_at | timestamptz null |
+| key_id, payload | text null (encrypted rows) |
+| arrival | timestamptz null (legacy only) |
+| departure | timestamptz null (legacy only) |
+| latitude, longitude | double precision null (legacy only) |
+| place_name, place_category | text null (legacy only) |
+| is_named_place, is_resolved | boolean null (legacy only) |
+| calendar_event_id, calendar_content_hash | text null (legacy only; never read) |
+| calendar_synced_at | timestamptz null (legacy only; never read) |
 | updated_at | timestamptz (trigger) |
 | deleted_at | timestamptz null |
 
 Index: `(user_id, updated_at)`.
 
+### `sync_keys` — pk `user_id`
+| column | type | notes |
+|---|---|---|
+| key_id | text | fingerprint of the account's sync key (the key itself never reaches the server) |
+| created_at | timestamptz | |
+
+Insert-once (`ON CONFLICT DO NOTHING`; no update policy) so two devices can't register
+competing keys. Select/insert/delete own row; no entitlement needed. Deleting it (with the
+user's transactions and visits) is how a user starts encryption over.
+
 ### `user_settings` — pk `user_id`
 | column | type | notes |
 |---|---|---|
-| settings | jsonb | `{"locationLogging":bool,"calendarWriting":bool,"onlyNamedPlaces":bool,"minimumVisitMinutes":int,"aiAssistant":bool}` |
+| settings | jsonb | `{"locationLogging":bool,"calendarWriting":bool,"onlyNamedPlaces":bool,"minimumVisitMinutes":int,"aiAssistant":bool,"visitSync":bool}` — a missing `visitSync` (older app versions) means off |
 | updated_at | timestamptz | trigger |
 
 ### `subscriptions` — pk `user_id`
@@ -141,10 +169,28 @@ Deletes the auth user with the admin API (cascades to every table). 200 `{"delet
 The app then wipes local data and signs out. (Apple requires in-app account deletion; the
 App Store subscription itself must be cancelled by the user in Settings — the app says so.)
 
+### `POST truelayer-token` (anon key or user JWT, checked by the gateway)
+Exchanges or refreshes TrueLayer tokens with the client secret, which only this function has.
+No DayLedger account needed (bank connections are free and local). Tokens pass through; they
+are never stored or logged.
+
+Request: `{"grant_type":"authorization_code","code":"..."}` or
+`{"grant_type":"refresh_token","refresh_token":"..."}`.
+
+- 200: `{"access_token","refresh_token","expires_in","token_type","scope"}` (only these fields).
+- 4xx from TrueLayer: same status with TrueLayer's OAuth error, e.g. 400 `{"error":"invalid_grant"}`
+  (the app asks the user to reconnect). TrueLayer's 401 (our client credentials rejected) is
+  returned as 400 so the app never mistakes it for an expired DayLedger session.
+- 400 `invalid_request` / `unsupported_grant_type` for a bad body; 502 `upstream_unavailable`
+  when TrueLayer can't be reached or fails.
+
 ### Function secrets
 `APPLE_BUNDLE_ID`, `APPLE_ISSUER_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY` (App Store Connect
-API key, .p8 contents), `APPLE_APP_APPLE_ID` (numeric, production only). Supabase provides
-`SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`. None of these are in the repo.
+API key, .p8 contents), `APPLE_APP_APPLE_ID` (numeric, production only).
+`TRUELAYER_CLIENT_ID`, `TRUELAYER_CLIENT_SECRET`, `TRUELAYER_ENVIRONMENT` (`sandbox` or `live`,
+default `sandbox`), `TRUELAYER_REDIRECT_URI` (default `dayledger://truelayer-callback`). The
+client ID must match the app's `TRUELAYER_CLIENT_ID`. Supabase provides `SUPABASE_URL`,
+`SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`. None of these are in the repo.
 
 ## Auth (Supabase GoTrue REST, called directly from iOS with `URLSession`)
 
@@ -174,12 +220,42 @@ Session (access token, refresh token, expiry, user id, email) is stored in the *
   repeat until fewer than 500. Cursor `(ts, id)` per user and table stored on device.
 - Local deletes push `deleted_at = now()` while entitled; without an entitlement (updates are
   refused) they hard-`DELETE` own rows instead. Pulled rows with `deleted_at` are removed locally.
-- Order: pull first, then push.
+- Order: settings, then the key (see "Encryption"), then pull, then push.
 - Conflict rule: last write wins by server `updated_at`.
+- Visits are only pushed while `visitSync` is on. Turning it off (or "Remove from account")
+  hard-deletes all of the user's visit rows; local copies stay on the device.
+
+## Encryption
+
+- **Key:** one random 256-bit key per account, created by the first device that syncs and kept
+  in iCloud Keychain (synchronizable item, service `app.dayledger.synckeys`, account
+  `sync.key.<user id>.<key id>`), so the user's other devices receive it and Apple can't read it.
+  Its fingerprint (`key_id`, first 16 bytes of SHA-256 over a label and the key, hex) is
+  registered in `sync_keys`; the key never leaves the user's devices and iCloud Keychain.
+- **Finding the key:** read `sync_keys`. Registered and on this device → use it. Registered but
+  not on this device → wait (the app explains iCloud Keychain) and sync nothing. None registered
+  → generate, save locally, register with `ON CONFLICT DO NOTHING`, read back; if another device
+  won the race, discard ours and wait for theirs.
+- **Rows:** AES-256-GCM over the row's JSON content (`TransactionSyncContent` /
+  `VisitSyncContent`, dates as milliseconds since 1970). Associated data
+  `dayledger.sync.v1|<table>|<user id>|<row id>` binds each payload to its row and user. Stored as
+  `v1.` + base64(nonce ‖ ciphertext ‖ tag). Tombstones are encrypted too.
+- **Upgrade from plaintext:** the first time a device syncs with a key (or when the account's key
+  changes) it pulls from the start. Legacy plaintext rows are applied locally and marked dirty, so
+  they are uploaded again encrypted, which nulls the plaintext columns. Legacy tombstones are
+  re-sent as encrypted tombstones (or hard-deleted without an entitlement). Legacy *visits* wait
+  for the user to choose: keep (visit sync on, re-uploaded encrypted) or remove from the account.
+  Rows of lapsed users stay plaintext until they subscribe again (RLS blocks their writes).
+- **Older app versions** keep writing plaintext. When one updates an encrypted row, a trigger
+  drops the stale ciphertext, so the row becomes a legacy row and newer devices re-encrypt it.
+- **Start over** (key lost everywhere): delete the user's `transactions`, `visits` and
+  `sync_keys` rows, then sync, which creates a new key and uploads this device's data.
 
 ## iOS configuration
 
 `Config/Local.xcconfig` (gitignored): `SUPABASE_URL` (write `https:/$()/xyz.supabase.co`,
 because `//` starts an xcconfig comment) and `SUPABASE_ANON_KEY` (public by design; RLS protects
 data). Exposed in Info.plist as `DLSupabaseURL` and `DLSupabaseAnonKey`.
-Launch argument `-UITestMockData` skips login and paywall (UI tests and the no-credentials demo).
+Launch argument `-UITestMockData` runs without accounts, in memory, with a mock bank (UI tests
+and the no-credentials demo). The app never requires signing in: sign-in and the paywall are
+sheets opened from Settings or from a Pro feature.

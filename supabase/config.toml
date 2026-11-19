@@ -114,3 +114,7 @@ verify_jwt = true
 
 [functions.app-store-notifications]
 verify_jwt = false
+
+[functions.truelayer-token]
+# The anon key is enough: bank connections work without a DayLedger account.
+verify_jwt = true

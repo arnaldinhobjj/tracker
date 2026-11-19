@@ -8,7 +8,7 @@ options:
 
 configFiles:
   Debug: Config/Base.xcconfig
-  Release: Config/Base.xcconfig
+  Release: Config/Release.xcconfig
 
 settings:
   base:
@@ -32,6 +32,10 @@ targets:
       - path: App
         excludes:
           - Resources/DayLedger.storekit
+          - PrivacyInfo.xcprivacy
+      # Privacy manifest (required-reason APIs and collected data), bundled as a resource.
+      - path: App/PrivacyInfo.xcprivacy
+        buildPhase: resources
       # Local StoreKit testing (Simulator / Xcode runs only); referenced by the scheme, not bundled.
       - path: App/Resources/DayLedger.storekit
         buildPhase: none
@@ -65,8 +69,8 @@ targets:
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         ITSAppUsesNonExemptEncryption: false
         UIBackgroundModes: [fetch]
-        NSLocationWhenInUseUsageDescription: DayLedger logs the places you visit (not continuous GPS) so it can match them with your spending and add them to your DayLedger calendar.
-        NSLocationAlwaysAndWhenInUseUsageDescription: Allow "Always" so DayLedger can log visits automatically when you arrive at or leave a place, even when the app is closed. Location data stays on your iPhone.
+        NSLocationWhenInUseUsageDescription: DayLedger logs the places you visit (not continuous GPS) so it can match them with your spending and add them to your DayLedger calendar. Visits are stored on your iPhone and are only uploaded, end-to-end encrypted, if you turn on visit sync.
+        NSLocationAlwaysAndWhenInUseUsageDescription: Allow "Always" so DayLedger can log visits automatically when you arrive at or leave a place, even when the app is closed. Visits are stored on your iPhone and are only uploaded, end-to-end encrypted, if you turn on visit sync.
         BGTaskSchedulerPermittedIdentifiers: [app.dayledger.refresh]
         CFBundleURLTypes:
           - CFBundleURLName: app.dayledger
@@ -99,6 +103,10 @@ targets:
     platform: iOS
     sources:
       - path: Widget
+        excludes:
+          - PrivacyInfo.xcprivacy
+      - path: Widget/PrivacyInfo.xcprivacy
+        buildPhase: resources
     dependencies:
       - package: DayLedgerKit
         product: SharedModels

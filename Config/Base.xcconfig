@@ -13,14 +13,17 @@ DL_DEVELOPMENT_TEAM =
 // TrueLayer (https://console.truelayer.com). "sandbox" or "live".
 TRUELAYER_ENVIRONMENT = sandbox
 TRUELAYER_CLIENT_ID =
-// Sandbox / personal development only. See README: production must exchange tokens on a backend.
+// Optional, Debug builds only: lets a Debug build talk to the TrueLayer sandbox without a backend.
+// Leave empty to use the `truelayer-token` Edge Function (the only option in Release builds;
+// Config/Release.xcconfig blanks this value).
 TRUELAYER_CLIENT_SECRET =
 
 // Google Cloud OAuth client of type "iOS", e.g. 1234-abcd.apps.googleusercontent.com
 GOOGLE_IOS_CLIENT_ID =
 
-// DayLedger account backend (Supabase). Leave empty to run without accounts: Debug builds still
-// show the login screens (and the developer login), Release builds say accounts aren't set up.
+// DayLedger backend (Supabase): accounts, DayLedger Pro and the TrueLayer token exchange. Leave
+// empty to run local-only: the app works without accounts, and banks can only be connected in
+// Debug builds with TRUELAYER_CLIENT_SECRET set.
 // Write URLs as https:/$()/xyz.supabase.co because "//" starts a comment in .xcconfig files.
 SUPABASE_URL =
 // The project's anon (public) key. Public by design: row-level security protects the data.

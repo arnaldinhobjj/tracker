@@ -2,10 +2,13 @@ import AccountKit
 import AuthenticationServices
 import SwiftUI
 
-/// First screen when signed out: Apple, Google or email.
+/// Sign in or create a DayLedger account (Apple, Google or email). Presented as a sheet: an
+/// account is only needed for DayLedger Pro.
 struct WelcomeView: View {
     let account: AccountController
     let configuration: AppConfiguration
+    /// Closes the sheet ("Not now"). Nil when not presented as a sheet.
+    var onClose: (() -> Void)?
 
     @State private var showingEmail = false
     @State private var emailMode = EmailAuthForm.Mode.logIn
@@ -34,6 +37,14 @@ struct WelcomeView: View {
             .background(background.ignoresSafeArea())
             .navigationDestination(isPresented: $showingEmail) {
                 EmailAuthView(account: account, initialMode: emailMode)
+            }
+            .toolbar {
+                if let onClose {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Not now", action: onClose)
+                            .accessibilityIdentifier("closeSignIn")
+                    }
+                }
             }
             .alert(item: $error) { error in
                 Alert(title: Text(error.title), message: Text(error.message))
@@ -64,16 +75,16 @@ struct WelcomeView: View {
 
             Text("DayLedger")
                 .font(.largeTitle.bold())
-            Text("See where your day went — every place you visited and what you spent there, side by side.")
+            Text("Sign in for DayLedger Pro: your ledger synced, end-to-end encrypted, and AI suggestions.")
                 .font(.title3)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 32)
 
             VStack(alignment: .leading, spacing: 10) {
-                FeatureRow(icon: "building.columns", text: "Read-only bank spending, sorted for you")
-                FeatureRow(icon: "mappin.and.ellipse", text: "Places logged automatically")
-                FeatureRow(icon: "icloud", text: "Synced and backed up to your account")
+                FeatureRow(icon: "lock.icloud", text: "Synced and backed up, end-to-end encrypted")
+                FeatureRow(icon: "sparkles", text: "AI suggestions from your routine")
+                FeatureRow(icon: "iphone", text: "Everything else works without an account")
             }
             .padding(.top, 8)
         }
@@ -163,7 +174,7 @@ struct WelcomeView: View {
             if let terms = configuration.termsURL, let privacy = configuration.privacyURL {
                 Text(Self.legalMarkdown(terms: terms, privacy: privacy))
             } else {
-                Text("Your bank, Google and AI keys never leave this iPhone.")
+                Text("Your bank, Google and AI keys never leave this iPhone, and only your devices can read your synced data.")
             }
         }
         .font(.footnote)
