@@ -12,13 +12,15 @@ final class EventKitCalendarDestinationTests: XCTestCase {
         let store = InMemoryEventStore(access: .notDetermined)
         let destination = EventKitCalendarDestination(store: store)
         XCTAssertFalse(destination.isAuthorized)
-        XCTAssertTrue(try await destination.requestAccess())
+        let granted = try await destination.requestAccess()
+        XCTAssertTrue(granted)
         XCTAssertTrue(destination.isAuthorized)
 
         XCTAssertFalse(EventKitCalendarDestination(store: InMemoryEventStore(access: .writeOnly)).isAuthorized,
                        "Write-only access can't update events, so it isn't enough")
         let refusing = InMemoryEventStore(access: .notDetermined, grantsAccessOnRequest: false)
-        XCTAssertFalse(try await EventKitCalendarDestination(store: refusing).requestAccess())
+        let refused = try await EventKitCalendarDestination(store: refusing).requestAccess()
+        XCTAssertFalse(refused)
     }
 
     func testCalendarIsCreatedOnceThenReused() async throws {
