@@ -184,3 +184,39 @@ final class CloudSyncServiceTests: XCTestCase {
         XCTAssertTrue(h.http.requests.isEmpty)
     }
 }
+
+/// Review fixes: pulled rows must not undo local deletions or import another device's calendar state.
+@MainActor
+final class CloudApplyRemoteTests: XCTestCase {
+    private let userID = UUID()
+
+    func testPulledRowDoesNotResurrectAPendingLocalDeletion() throws {
+        let container = PersistenceController.makeContainer(appGroupID: "", inMemory: true)
+        let repository = TransactionRepository(container: container)
+        let deleted = BankTransaction(id: "a:pending", accountID: "a", merchant: "Tesco", rawDescription: "TESCO", amountMinor: 1_287,
+                                      direction: .debit, bankCategory: "PURCHASE", category: .groceries, timestamp: Date(),
+                                      hasTime: true, isPending: true)
+        let oldCopy = TransactionSyncRow(stored: deleted, userID: userID)
+
+        let changed = try repository.applyRemote([oldCopy], pendingDeletionIDs: ["a:pending"])
+
+        XCTAssertFalse(changed)
+        XCTAssertTrue(repository.allStored().isEmpty)
+    }
+
+    func testPulledVisitKeepsCalendarStateLocal() throws {
+        let container = PersistenceController.makeContainer(appGroupID: "", inMemory: true)
+        let repository = VisitRepository(container: container)
+        let row = VisitSyncRow(userID: userID, id: UUID().uuidString, arrival: Date(), departure: nil, latitude: 51.5, longitude: -0.12,
+                               placeName: "Costa Coffee", placeCategory: "cafe", isNamedPlace: true, isResolved: true,
+                               calendarEventID: "dlvother", calendarContentHash: "hash-from-other-device", calendarSyncedAt: Date())
+
+        try repository.applyRemote([row])
+
+        let stored = try XCTUnwrap(repository.allVisits().first)
+        XCTAssertEqual(stored.placeName, "Costa Coffee")
+        XCTAssertNil(stored.calendarEventID)
+        XCTAssertNil(stored.calendarContentHash)
+        XCTAssertNil(stored.calendarSyncedAt)
+    }
+}

@@ -105,7 +105,9 @@ final class TransactionRepository {
     /// Applies pulled rows (last write wins by server time; soft-deleted rows are removed).
     /// Returns true if anything changed.
     @discardableResult
-    func applyRemote(_ rows: [TransactionSyncRow], now: Date = Date()) throws -> Bool {
+    /// `pendingDeletionIDs`: rows deleted on this device whose deletion hasn't reached the server
+    /// yet. A pulled (older) copy of one must not bring it back.
+    func applyRemote(_ rows: [TransactionSyncRow], pendingDeletionIDs: Set<String> = [], now: Date = Date()) throws -> Bool {
         guard !rows.isEmpty else { return false }
         let ids = rows.map(\.id)
         let existing = try context.fetch(FetchDescriptor<StoredTransaction>(predicate: #Predicate { ids.contains($0.id) }))
@@ -124,6 +126,7 @@ final class TransactionRepository {
                 }
                 continue
             }
+            if local == nil && pendingDeletionIDs.contains(row.id) { continue }
             let transaction = row.bankTransaction
             if let local {
                 local.update(from: transaction, at: now)

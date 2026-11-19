@@ -142,9 +142,8 @@ final class VisitRepository {
             visit.placeCategory = row.placeCategory
             visit.isNamedPlace = row.isNamedPlace
             visit.isResolved = row.isResolved
-            visit.calendarEventID = row.calendarEventID
-            visit.calendarContentHash = row.calendarContentHash
-            visit.calendarSyncedAt = row.calendarSyncedAt
+            // Calendar acknowledgements stay local: they describe this device's Google calendar,
+            // which may be a different calendar (or account) from the device that pushed the row.
             visit.updatedAt = now
             visit.cloudSyncedAt = now
             changed = true

@@ -146,6 +146,7 @@ final class AppEnvironment {
             Task { await cloudSync.sync() }
         }
         account.onSignedIn = { [weak self] user in
+            cloudSync.cancelInFlight()
             Task { @MainActor in
                 // A different person signing in on this iPhone must not see, or upload, the
                 // previous account's data: wipe it before anything syncs.
@@ -157,6 +158,7 @@ final class AppEnvironment {
             }
         }
         account.onSignedOut = {
+            cloudSync.cancelInFlight()
             subscriptions.reset()
         }
         if !account.isDeveloperAccount {

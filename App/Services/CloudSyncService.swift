@@ -61,6 +61,7 @@ final class CloudSyncService {
     @ObservationIgnored private let settings: AppSettings
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private var inFlight: Task<Void, Never>?
+    @ObservationIgnored private var inFlightUserID: UUID?
 
     /// The signed-in user, or nil (signed out, developer account, UI tests).
     @ObservationIgnored var currentUserID: @MainActor () -> UUID? = { nil }
@@ -90,12 +91,30 @@ final class CloudSyncService {
 
     /// Runs a sync, or joins the one already running. Does nothing when signed out.
     func sync(now: Date = Date()) async {
-        if let inFlight { return await inFlight.value }
         guard rest != nil, let userID = currentUserID() else { return }
+        if let inFlight, inFlightUserID == userID { return await inFlight.value }
+        // A run for another account must never apply its results to this one.
+        cancelInFlight()
         let task = Task { await perform(userID: userID, now: now) }
         inFlight = task
+        inFlightUserID = userID
         await task.value
+        if inFlightUserID == userID, inFlight == task {
+            inFlight = nil
+            inFlightUserID = nil
+        }
+    }
+
+    /// Stops a running sync (sign-out or account switch): anything it fetches afterwards is dropped.
+    func cancelInFlight() {
+        inFlight?.cancel()
         inFlight = nil
+        inFlightUserID = nil
+    }
+
+    /// Throws when this run was cancelled or the signed-in account changed while awaiting the network.
+    private func ensureCurrent(_ userID: UUID) throws {
+        if Task.isCancelled || currentUserID() != userID { throw CancellationError() }
     }
 
     private func perform(userID: UUID, now: Date) async {
@@ -118,6 +137,8 @@ final class CloudSyncService {
             }
             lastSync = now
             error = nil
+        } catch is CancellationError {
+            return
         } catch AuthError.sessionExpired {
             onSessionExpired?()
         } catch let networkError as NetworkError where networkError == .offline || networkError == .timedOut {
@@ -144,7 +165,9 @@ final class CloudSyncService {
 
     private func pullTransactions(userID: UUID, rest: SupabaseRESTClient, now: Date) async throws -> Bool {
         let result = try await rest.fetchChanges(TransactionSyncRow.self, from: Self.transactionsTable, after: cursor(Self.transactionsTable, userID))
-        let changed = try transactions.applyRemote(result.rows, now: now)
+        try ensureCurrent(userID)
+        let pending = Set(pendingTombstones().map(\.id))
+        let changed = try transactions.applyRemote(result.rows, pendingDeletionIDs: pending, now: now)
         saveCursor(result.cursor, table: Self.transactionsTable, userID: userID)
         return changed
     }
@@ -177,6 +200,7 @@ final class CloudSyncService {
         guard !dirty.isEmpty else { return }
         let rows = dirty.map { TransactionSyncRow(stored: $0.domain, userID: userID) }
         try await rest.upsert(rows, into: Self.transactionsTable, onConflict: "user_id,id")
+        try ensureCurrent(userID)
         transactions.markCloudSynced(ids: Set(rows.map(\.id)), at: startedAt)
     }
 
@@ -211,6 +235,7 @@ final class CloudSyncService {
 
     private func pullVisits(userID: UUID, rest: SupabaseRESTClient, now: Date) async throws -> Bool {
         let result = try await rest.fetchChanges(VisitSyncRow.self, from: Self.visitsTable, after: cursor(Self.visitsTable, userID))
+        try ensureCurrent(userID)
         let changed = try visits.applyRemote(result.rows, now: now)
         saveCursor(result.cursor, table: Self.visitsTable, userID: userID)
         return changed
@@ -222,6 +247,7 @@ final class CloudSyncService {
         guard !dirty.isEmpty else { return }
         let rows = dirty.map { VisitSyncRow(stored: $0, userID: userID) }
         try await rest.upsert(rows, into: Self.visitsTable, onConflict: "user_id,id")
+        try ensureCurrent(userID)
         visits.markCloudSynced(ids: Set(rows.map(\.id)), at: startedAt)
     }
 
@@ -231,6 +257,7 @@ final class CloudSyncService {
 
     private func syncSettings(userID: UUID, rest: SupabaseRESTClient, canWrite: Bool, now: Date) async throws -> Bool {
         let remote = try await rest.fetchPage(UserSettingsSyncRow.self, from: Self.settingsTable, after: nil, hasIDColumn: false, limit: 1).first
+        try ensureCurrent(userID)
         let local = settings.synced
         let action = CloudMerge.settingsAction(
             localChangedAt: settings.changedAt,
