@@ -102,6 +102,15 @@ jobs:
           echo "No client secret in the Release build."
           rm -f Config/Local.xcconfig
 
+      - name: Show compiler crashes
+        # The test steps filter their output; a crashing compiler's diagnostics and stack dump
+        # are only in the full logs.
+        if: failure()
+        run: |
+          for log in "$RUNNER_TEMP"/*.log; do
+            grep -n -B 30 -A 60 -E "Stack dump|Please submit a bug report|While (type-checking|evaluating|emitting|silgen|SILGen)" "$log" | head -400 || true
+          done
+
       - name: Upload logs and results
         if: always()
         uses: actions/upload-artifact@v4

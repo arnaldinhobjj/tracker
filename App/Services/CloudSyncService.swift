@@ -254,7 +254,9 @@ final class CloudSyncService {
         while more {
             let rows = try await rest.fetchPage(TransactionSyncRow.self, from: Self.transactionsTable, after: position)
             try ensureCurrent(userID)
-            (position, more) = SupabaseRESTClient.advance(position, after: rows)
+            let step = SupabaseRESTClient.advance(position, after: rows)
+            position = step.cursor
+            more = step.hasMore
             let readable = Self.readable(rows, open: { try $0.opening(with: key) }, isDeletion: { $0.deletedAt != nil })
             // Plaintext tombstones from older versions: queue an encrypted tombstone, which
             // overwrites (or, without a subscription, hard-deletes) the plaintext on the server.
@@ -371,7 +373,9 @@ final class CloudSyncService {
         while more {
             let rows = try await rest.fetchPage(VisitSyncRow.self, from: Self.visitsTable, after: position)
             try ensureCurrent(userID)
-            (position, more) = SupabaseRESTClient.advance(position, after: rows)
+            let step = SupabaseRESTClient.advance(position, after: rows)
+            position = step.cursor
+            more = step.hasMore
             let readable = Self.readable(rows, open: { try $0.opening(with: key) }, isDeletion: { $0.deletedAt != nil })
             changed = try visits.applyRemote(readable, now: now) || changed
             if readable.contains(where: { $0.isLegacyPlaintext && $0.deletedAt == nil }) {
