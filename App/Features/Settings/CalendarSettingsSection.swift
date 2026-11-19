@@ -71,8 +71,9 @@ struct CalendarSettingsSection: View {
                 if isRequestingAccess {
                     ProgressView()
                 } else {
-                    Label("Allow calendar access", systemImage: "calendar.badge.plus")
-                        .font(.body)
+                    // Plain text: the audit reported the icon-and-title label as not fully
+                    // scaling with Dynamic Type.
+                    Text("Allow calendar access")
                 }
             }
             .disabled(isRequestingAccess)
