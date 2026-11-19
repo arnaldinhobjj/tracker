@@ -58,6 +58,7 @@ final class DayLedgerUITests: XCTestCase {
     }
 
     /// Lists render lazily, so off-screen rows don't exist until scrolled to (small simulators).
+    @MainActor
     private func scroll(_ app: XCUIApplication, until element: XCUIElement, maxSwipes: Int = 8) {
         for _ in 0..<maxSwipes where !(element.exists && element.isHittable) {
             app.swipeUp()
