@@ -106,7 +106,8 @@ final class AppSettings {
         self.defaults = defaults
         // Everything that leaves the device or tracks you is off until you turn it on.
         locationLoggingEnabled = defaults.object(forKey: Keys.location) as? Bool ?? false
-        calendarWritingEnabled = defaults.object(forKey: Keys.calendar) as? Bool ?? false
+        let calendarWriting = defaults.object(forKey: Keys.calendar) as? Bool ?? false
+        calendarWritingEnabled = calendarWriting
         onlyNamedPlaces = defaults.object(forKey: Keys.namedOnly) as? Bool ?? true
         minimumVisitMinutes = defaults.object(forKey: Keys.minimumMinutes) as? Int ?? 5
         aiAssistantEnabled = defaults.object(forKey: Keys.ai) as? Bool ?? false
@@ -116,7 +117,7 @@ final class AppSettings {
         } else {
             // Apple Calendar for new users. Anyone already writing to Google (before Apple Calendar
             // existed) stays on Google; the choice is saved so it never changes by itself.
-            let kind: CalendarDestinationKind = calendarWritingEnabled ? .google : .apple
+            let kind: CalendarDestinationKind = calendarWriting ? .google : .apple
             calendarDestination = kind
             defaults.set(kind.rawValue, forKey: Keys.calendarDestination)
         }
