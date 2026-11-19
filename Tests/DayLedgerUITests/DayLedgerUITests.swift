@@ -66,14 +66,19 @@ final class DayLedgerUITests: XCTestCase {
         app.launch()
         XCTAssertTrue(app.staticTexts["todayTotal"].waitForExistence(timeout: 15))
 
+        var problems: [String] = []
         for tab in ["Today", "Places", "Suggest", "Settings"] {
             app.tabBars.buttons[tab].tap()
             try app.performAccessibilityAudit(for: [.sufficientElementDescription, .dynamicType, .contrast]) { issue in
                 // Issues in system-drawn chrome (no element of ours) aren't ours to fix.
-                guard let element = issue.element else { return true }
-                return element.elementType == .tabBar || element.elementType == .navigationBar
+                guard let element = issue.element,
+                      element.elementType != .tabBar, element.elementType != .navigationBar else { return true }
+                problems.append("\(tab): \(issue.compactDescription) – \(element.elementType.rawValue) label=\"\(element.label)\" id=\"\(element.identifier)\"")
+                return true
             }
         }
+        // One failure listing every issue, with the element, so it can be fixed from the CI log.
+        XCTAssertTrue(problems.isEmpty, problems.joined(separator: "; "))
     }
 
     /// Lists render lazily, so off-screen rows don't exist until scrolled to (small simulators).
