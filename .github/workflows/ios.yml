@@ -21,8 +21,18 @@ jobs:
           xcodebuild -version
           swift --version
 
-      - name: Install XcodeGen
-        run: brew install xcodegen
+      - name: Install XcodeGen (pinned)
+        # Pinned so every workflow generates the identical project. `brew install` kept whatever
+        # version the runner image had, so two runners could disagree on the committed project.
+        # To upgrade: change XCODEGEN_VERSION here and in the other workflow, regenerate, commit.
+        env:
+          XCODEGEN_VERSION: "2.47.0"
+        run: |
+          curl -sSfL -o "$RUNNER_TEMP/xcodegen.zip" \
+            "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
+          unzip -q -o "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/xcodegen/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/xcodegen/bin/xcodegen" --version | grep -q "${XCODEGEN_VERSION}"
 
       - name: Generate Xcode project
         run: xcodegen generate

@@ -32,7 +32,7 @@ An iOS app (SwiftUI, iOS 17+) that combines your spending, the places you visit 
 ## Requirements
 
 - macOS with Xcode 16 or later (CI uses the current `macos-15` GitHub runner image)
-- [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`), only if you change `project.yml` or add/remove files
+- [XcodeGen](https://github.com/yonaskolb/XcodeGen) **2.47.0** (the version CI pins; other versions write a slightly different project), only if you change `project.yml` or add/remove files
 - An Apple Developer account to run on a device. A paid membership is recommended: App Groups (needed by the widget) and long-lived installs are not reliable with a free "Personal Team".
 - A TrueLayer developer account (free sandbox)
 - A Google Cloud project (free)
@@ -62,10 +62,14 @@ brew install xcodegen
 ```
 
 ```bash
+xcodegen --version
+```
+
+```bash
 xcodegen generate
 ```
 
-You also need to regenerate after adding or removing source files. If you push without regenerating, the **Sync Xcode project** workflow (`.github/workflows/xcodeproj.yml`) regenerates and commits it for you. Set your Team ID in `Config/Local.xcconfig`, not in Xcode's Signing UI, so your team isn't written into the committed project.
+CI pins XcodeGen 2.47.0. If `xcodegen --version` shows something else, either install that release from [its GitHub release](https://github.com/yonaskolb/XcodeGen/releases/tag/2.47.0) or just push: the CI check compares against 2.47.0's output. You also need to regenerate after adding or removing source files. If you push without regenerating, the **Sync Xcode project** workflow (`.github/workflows/xcodeproj.yml`) regenerates and commits it for you. Set your Team ID in `Config/Local.xcconfig`, not in Xcode's Signing UI, so your team isn't written into the committed project.
 
 ## Configuration
 
