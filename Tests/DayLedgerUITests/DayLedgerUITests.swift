@@ -85,6 +85,10 @@ final class DayLedgerUITests: XCTestCase {
                 if issue.auditType == .contrast && issue.compactDescription.localizedCaseInsensitiveContains("nearly") {
                     return true
                 }
+                // Text scrolled under the translucent tab bar is measured against the bar's blur.
+                if issue.auditType == .contrast && element.frame.intersects(app.tabBars.firstMatch.frame) {
+                    return true
+                }
                 // A plain Text in a standard Form button is reported as "partially" supporting
                 // Dynamic Type (the row's system styling); fixed-size text is still reported.
                 if issue.auditType == .dynamicType && issue.compactDescription.localizedCaseInsensitiveContains("partially") {
