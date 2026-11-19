@@ -193,7 +193,7 @@ public actor AppAttestClient: RequestAttesting {
             } else {
                 keyID = try await provider.generateKey()
             }
-            // The task runs on this actor, so this is recorded before the first suspension.
+            // Kept so a later attempt can attest this key instead of creating another one.
             self.remember(unregistered: keyID)
             let challenge = try await registrar.challenge()
             let attestation = try await provider.attestKey(keyID, clientDataHash: Self.hash(Data(challenge.utf8)))

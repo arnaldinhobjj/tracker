@@ -217,7 +217,10 @@ public final class SupabaseRESTClient: @unchecked Sendable {
     private func function(_ name: String, method: String, body: Data?, timeout: TimeInterval? = nil,
                           attester: RequestAttesting? = nil) async throws -> Data {
         let url = try configuration.endpoint("functions/v1/\(name)")
-        let client = attester.map { AttestingHTTPClient(base: http, attester: $0) } ?? http
+        var client: HTTPClient = http
+        if let attester {
+            client = AttestingHTTPClient(base: http, attester: attester)
+        }
         return try await authorised(url: url, method: method, body: body, timeout: timeout, http: client)
     }
 

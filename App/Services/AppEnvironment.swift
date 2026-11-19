@@ -256,7 +256,7 @@ final class AppEnvironment {
         let anonKey = supabase.anonKey
         return BackendTrueLayerTokenExchanger(endpoint: endpoint, headers: {
             ["apikey": anonKey, "Authorization": "Bearer \(anonKey)"]
-        }, http: attester.map { AttestingHTTPClient(attester: $0) } ?? URLSessionHTTPClient())
+        }, http: attester.map { AttestingHTTPClient(attester: $0) as HTTPClient } ?? URLSessionHTTPClient())
     }
 
     static func makeDefault(processInfo: ProcessInfo = .processInfo) -> AppEnvironment {

@@ -52,7 +52,7 @@ final class AppAttestClientTests: XCTestCase {
         let provider = FakeAttestationProvider()
         let registrar = FakeRegistrar()
         registrar.failNext = true
-        let clock = Clock()
+        let clock = TestClock()
         let client = AppAttestClient(provider: provider, registrar: registrar, store: MemoryKeyStore(), now: { clock.now })
 
         let offline = await client.headers(for: Data())
@@ -200,13 +200,13 @@ private final class MemoryKeyStore: AppAttestKeyStoring, @unchecked Sendable {
     func saveKeyID(_ keyID: String?) { lock.withLock { self.keyID = keyID } }
 }
 
-private final class Clock: @unchecked Sendable {
+private final class TestClock: @unchecked Sendable {
     var now = Date(timeIntervalSince1970: 1_800_000_000)
 }
 
 private actor CountingAttester: RequestAttesting {
     private(set) var resets = 0
-    private var keys = ["key-a", "key-b", "key-c"]
+    private let keys = ["key-a", "key-b", "key-c"]
 
     func headers(for body: Data) -> [String: String] {
         [AppAttestHeaders.key: keys[min(resets, keys.count - 1)], AppAttestHeaders.assertion: "sig"]
