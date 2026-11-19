@@ -10,7 +10,7 @@ import SwiftData
 
 /// The store as shipped up to and including Sprint 1 (frozen copy of the models).
 enum SchemaV1: VersionedSchema {
-    static let versionIdentifier = Schema.Version(1, 0, 0)
+    static var versionIdentifier: Schema.Version { Schema.Version(1, 0, 0) }
     static var models: [any PersistentModel.Type] { [StoredTransaction.self, StoredVisit.self] }
 
     @Model
@@ -86,7 +86,7 @@ enum SchemaV1: VersionedSchema {
 /// loading every row on each sync) and `StoredPendingDeletion` (replaces the list in UserDefaults).
 /// The current models are the top-level types.
 enum SchemaV2: VersionedSchema {
-    static let versionIdentifier = Schema.Version(2, 0, 0)
+    static var versionIdentifier: Schema.Version { Schema.Version(2, 0, 0) }
     static var models: [any PersistentModel.Type] { [StoredTransaction.self, StoredVisit.self, StoredPendingDeletion.self] }
 }
 
