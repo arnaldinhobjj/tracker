@@ -122,7 +122,7 @@ final class AppEnvironment {
         aiProviders = [
             BackendAIProvider(send: { [rest] body in
                 guard let rest else { throw AIError.notEntitled }
-                return try await rest.invokeFunction("ai-suggest", body: body)
+                return try await rest.invokeFunction("ai-suggest", body: body, timeout: BackendAIProvider.requestTimeout)
             }),
         ]
         // Earlier versions asked users for their own Anthropic API key. It's no longer used:

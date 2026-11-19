@@ -8,6 +8,10 @@ import Networking
 public struct BackendAIProvider: AIProvider {
     public let id = "dayledger"
     public let displayName = "DayLedger AI (Claude)"
+    /// How long the app waits for the function. Longer than its own 110-second wait for the
+    /// model, so a slow answer that the server does return (and counts against the daily limit)
+    /// still reaches the app.
+    public static let requestTimeout: TimeInterval = 120
 
     /// POSTs a JSON body to the function as the signed-in user and returns the response body.
     private let send: @Sendable (Data) async throws -> Data

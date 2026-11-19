@@ -12,6 +12,7 @@ export const FALLBACK_BETA = "server-side-fallback-2026-07-01";
 export const DEFAULT_MODEL = "claude-opus-5-5";
 export const DEFAULT_DAILY_LIMIT = 20;
 const UPSTREAM_TIMEOUT_MS = 110_000;
+const MAX_PERIOD_MINUTES = 366 * 1_440;
 const MAX_SUMMARY_BYTES = 32_768;
 
 export interface AIConfig {
@@ -141,7 +142,13 @@ export function parseSummary(body: Record<string, unknown>): RoutineSummary {
           ? null
           : str(p.category, "place category", 80),
         visitsInPeriod: int(p.visitsInPeriod, "visitsInPeriod", 0, 10_000),
-        typicalDurationMinutes: int(p.typicalDurationMinutes, "typicalDurationMinutes", 0, 1_440),
+        // Multi-day stays (hotels) are real visits; none can outlast the 366-day period.
+        typicalDurationMinutes: int(
+          p.typicalDurationMinutes,
+          "typicalDurationMinutes",
+          0,
+          MAX_PERIOD_MINUTES,
+        ),
         typicalSlots: list(p.typicalSlots, "typicalSlots", 10).map((rawSlot) => {
           const slot = obj(rawSlot, "slot");
           return {

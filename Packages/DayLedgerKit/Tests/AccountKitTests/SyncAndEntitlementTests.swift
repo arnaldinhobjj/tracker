@@ -362,6 +362,14 @@ final class SupabaseRESTClientTests: XCTestCase {
         try await client.deleteAccount()
         XCTAssertEqual(http.requests.last?.httpMethod, "POST")
         XCTAssertNotNil(http.requests.last?.value(forHTTPHeaderField: "Authorization"))
+        XCTAssertEqual(http.requests.last?.timeoutInterval, 60, "URLSession's default")
+    }
+
+    func testSlowFunctionsCanWaitLongerThanTheDefaultTimeout() async throws {
+        let http = StubHTTPClient()
+        http.on("/functions/v1/ai-suggest", body: #"{"text":"[]"}"#)
+        _ = try await makeClient(http: http).invokeFunction("ai-suggest", body: Data("{}".utf8), timeout: 120)
+        XCTAssertEqual(http.requests.last?.timeoutInterval, 120)
     }
 
     func testDeleteAllRemovesEveryRowOfTheUserInATable() async throws {

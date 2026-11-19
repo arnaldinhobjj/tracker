@@ -70,6 +70,12 @@ Deno.test("only the summary's known fields reach the prompt", () => {
   assert(!JSON.stringify(parsed).includes("ignore previous instructions"));
 });
 
+Deno.test("multi-day stays the app can report are accepted", () => {
+  const hotel = { ...summary.places[0], name: "Premier Inn", typicalDurationMinutes: 3 * 1_440 };
+  const parsed = parseSummary({ summary: { ...summary, places: [hotel] } });
+  assertEquals(parsed.places[0].typicalDurationMinutes, 4_320);
+});
+
 Deno.test("malformed or oversized summaries are rejected", () => {
   const cases: unknown[] = [
     undefined,
@@ -78,6 +84,7 @@ Deno.test("malformed or oversized summaries are rejected", () => {
     { ...summary, places: [{ ...summary.places[0], name: "x".repeat(500) }] },
     { ...summary, places: Array(31).fill(summary.places[0]) },
     { ...summary, busy: [{ start: 1, end: 2 }] },
+    { ...summary, places: [{ ...summary.places[0], typicalDurationMinutes: 367 * 1_440 }] },
   ];
   for (const bad of cases) {
     let status = 0;

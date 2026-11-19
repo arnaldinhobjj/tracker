@@ -200,8 +200,9 @@ public final class SupabaseRESTClient: @unchecked Sendable {
     }
 
     /// `POST /functions/v1/<name>` with a JSON body, as the signed-in user. Returns the response body.
-    public func invokeFunction(_ name: String, body: Data) async throws -> Data {
-        try await function(name, method: "POST", body: body)
+    /// `timeout` overrides URLSession's 60-second default for functions that wait on a slow upstream.
+    public func invokeFunction(_ name: String, body: Data, timeout: TimeInterval? = nil) async throws -> Data {
+        try await function(name, method: "POST", body: body, timeout: timeout)
     }
 
     /// Deletes the account and, by cascade, every synced row.
@@ -211,9 +212,9 @@ public final class SupabaseRESTClient: @unchecked Sendable {
 
     // MARK: Plumbing
 
-    private func function(_ name: String, method: String, body: Data?) async throws -> Data {
+    private func function(_ name: String, method: String, body: Data?, timeout: TimeInterval? = nil) async throws -> Data {
         let url = try configuration.endpoint("functions/v1/\(name)")
-        return try await authorised(url: url, method: method, body: body)
+        return try await authorised(url: url, method: method, body: body, timeout: timeout)
     }
 
     private func decodeEntitlement(_ data: Data) throws -> Entitlement {
@@ -224,19 +225,22 @@ public final class SupabaseRESTClient: @unchecked Sendable {
         }
     }
 
-    private func authorised(url: URL, method: String, body: Data?, headers: [String: String] = [:]) async throws -> Data {
+    private func authorised(url: URL, method: String, body: Data?, headers: [String: String] = [:],
+                            timeout: TimeInterval? = nil) async throws -> Data {
         let token = try await tokens.validAccessToken()
         do {
-            return try await http.sendValidated(makeRequest(url: url, method: method, body: body, headers: headers, token: token))
+            return try await http.sendValidated(makeRequest(url: url, method: method, body: body, headers: headers, token: token, timeout: timeout))
         } catch let error as NetworkError where error.statusCode == 401 {
             let fresh = try await tokens.refreshedAccessToken(after: token)
-            return try await http.sendValidated(makeRequest(url: url, method: method, body: body, headers: headers, token: fresh))
+            return try await http.sendValidated(makeRequest(url: url, method: method, body: body, headers: headers, token: fresh, timeout: timeout))
         }
     }
 
-    private func makeRequest(url: URL, method: String, body: Data?, headers: [String: String], token: String) -> URLRequest {
+    private func makeRequest(url: URL, method: String, body: Data?, headers: [String: String], token: String,
+                             timeout: TimeInterval? = nil) -> URLRequest {
         var request = URLRequest(url: url)
         request.httpMethod = method
+        if let timeout { request.timeoutInterval = timeout }
         request.setValue(configuration.anonKey, forHTTPHeaderField: "apikey")
         request.setBearer(token)
         request.setValue("application/json", forHTTPHeaderField: "Accept")

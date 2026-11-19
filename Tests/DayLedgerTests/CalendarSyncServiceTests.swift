@@ -211,6 +211,29 @@ final class AppleCalendarSyncTests: XCTestCase {
         XCTAssertEqual(h.store.events.count, 1, "The visit is written to Apple Calendar too")
     }
 
+    /// The user switches to Apple Calendar while a Google sync is waiting on the network: during
+    /// calendar discovery, or while an event is being written.
+    func testSwitchingCalendarsDuringASyncWritesToTheNewCalendar() async throws {
+        for stage in [SwitchingDestination.Stage.findingCalendar, .writingEvent] {
+            let h = makeHarness()
+            _ = try recordCoffeeVisit(h, pence: 340)
+            let google = SwitchingDestination(switchDuring: stage)
+            let sync = CalendarSyncService(google: google, apple: EventKitCalendarDestination(store: h.store), visits: h.visits,
+                                           transactions: h.transactions, settings: h.settings, defaults: UserDefaults(suiteName: "tests.\(UUID().uuidString)")!)
+            h.settings.calendarDestination = .google
+            google.onSwitchPoint = { sync.switchDestination(to: .apple) }
+
+            await sync.sync()
+
+            XCTAssertEqual(h.settings.calendarDestination, .apple, "\(stage)")
+            XCTAssertEqual(h.store.events.count, 1, "\(stage): the visit isn't skipped in the newly chosen calendar")
+            let appleCalendar = try XCTUnwrap(h.store.calendars.keys.first, "\(stage)")
+            XCTAssertEqual(sync.calendarID, appleCalendar, "\(stage): Google's calendar ID isn't saved as Apple's")
+            XCTAssertNil(sync.error, "\(stage)")
+            XCTAssertFalse(sync.isSyncing)
+        }
+    }
+
     func testApprovedSuggestionsAreWrittenOnce() async throws {
         let h = makeHarness()
         let proposal = EventProposal(id: "gym|1", title: "Gym", start: Date().addingTimeInterval(86_400), durationMinutes: 60,
@@ -228,4 +251,35 @@ final class AppleCalendarSyncTests: XCTestCase {
         let busy = await h.sync.busyIntervals(from: Date(), to: Date().addingTimeInterval(86_400))
         XCTAssertEqual(busy, [meeting])
     }
+}
+
+/// A Google-like destination that calls `onSwitchPoint` (to switch calendars) while it is
+/// "waiting on the network" at the given stage.
+@MainActor
+private final class SwitchingDestination: CalendarDestination {
+    enum Stage { case findingCalendar, writingEvent }
+
+    let kind = CalendarDestinationKind.google
+    let isConfigured = true
+    let isAuthorized = true
+    let stage: Stage
+    var onSwitchPoint: (() -> Void)?
+    private(set) var upserts = 0
+
+    init(switchDuring stage: Stage) {
+        self.stage = stage
+    }
+
+    func ensureDayLedgerCalendar(knownID: String?) async throws -> String {
+        if stage == .findingCalendar { onSwitchPoint?() }
+        return "google-calendar"
+    }
+
+    func upsert(_ draft: CalendarEventDraft, calendarID: String) async throws {
+        upserts += 1
+        if stage == .writingEvent { onSwitchPoint?() }
+    }
+
+    func busyIntervals(from start: Date, to end: Date) async throws -> [DateInterval] { [] }
+    func deleteCalendar(id: String) async throws {}
 }
