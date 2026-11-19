@@ -31,6 +31,9 @@ struct DayLedgerApp: App {
             let environment = root.environment
             switch phase {
             case .active:
+                // Every launch, not only when going to the background, so refreshes keep coming
+                // even if the app is never backgrounded normally (e.g. it's killed).
+                BackgroundRefresh.schedule()
                 // Midnight rollover while the app was closed: update the widget straight away.
                 environment.widgetPublisher.publish()
                 Task { await environment.appDidBecomeActive() }
@@ -66,9 +69,9 @@ final class AppRoot {
         BackgroundRefresh.processingHandler = { [weak self] in
             await self?.environment.performBackgroundProcessing()
         }
-        // Not only when the app goes to the background: a launch that never reaches the
-        // background (e.g. a visit relaunch) still keeps refreshes coming.
-        BackgroundRefresh.schedule()
+        // Don't submit the app refresh request here: SwiftUI registers the `.backgroundTask`
+        // handler only once the scene exists, and submitting before that is an assertion failure.
+        // It is scheduled when the app becomes active (every launch) and goes to the background.
     }
 
     private func rebuild() {
