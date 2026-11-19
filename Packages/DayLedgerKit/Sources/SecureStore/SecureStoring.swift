@@ -33,6 +33,10 @@ public enum SecureStoreKey {
     public static func trueLayerTokens(connectionID: String) -> String { "truelayer.tokens.\(connectionID)" }
     public static let googleTokens = "google.tokens"
     public static func aiAPIKey(provider: String) -> String { "ai.apikey.\(provider)" }
+    /// The DayLedger account session (Supabase access + refresh token).
+    public static let supabaseSession = "supabase.session"
+    /// The PKCE verifier for an emailed sign-up or password-reset link we are waiting for.
+    public static let supabasePendingEmailLink = "supabase.pendingEmailLink"
 }
 
 /// In-memory store for tests, previews and UI tests.

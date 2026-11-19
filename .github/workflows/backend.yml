@@ -1,0 +1,73 @@
+name: Backend (Supabase)
+
+on:
+  push:
+    paths:
+      - "supabase/**"
+      - ".github/workflows/backend.yml"
+  pull_request:
+    paths:
+      - "supabase/**"
+      - ".github/workflows/backend.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  edge-functions:
+    name: Edge Functions (fmt, lint, check, test)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: supabase/functions
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Format
+        run: deno fmt --check
+
+      - name: Lint
+        run: deno lint
+
+      - name: Type-check
+        run: deno check '**/*.ts'
+
+      - name: Unit tests
+        run: deno test --allow-read --allow-env
+
+  database:
+    name: Database (migrations + pgTAP)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 3.2.0
+
+      - name: Start database and apply migrations
+        run: supabase db start
+
+      - name: Lint database functions
+        shell: bash
+        run: |
+          set -o pipefail
+          supabase db lint --level warning --fail-on error | tee db-lint.txt
+
+      - name: pgTAP tests
+        run: supabase test db
+
+      - name: Stop database
+        if: always()
+        run: supabase stop --no-backup

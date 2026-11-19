@@ -39,6 +39,14 @@
 	<string>$(DL_APP_GROUP_ID)</string>
 	<key>DLGoogleClientID</key>
 	<string>$(GOOGLE_IOS_CLIENT_ID)</string>
+	<key>DLPrivacyURL</key>
+	<string>$(DL_PRIVACY_URL)</string>
+	<key>DLSupabaseAnonKey</key>
+	<string>$(SUPABASE_ANON_KEY)</string>
+	<key>DLSupabaseURL</key>
+	<string>$(SUPABASE_URL)</string>
+	<key>DLTermsURL</key>
+	<string>$(DL_TERMS_URL)</string>
 	<key>DLTrueLayerClientID</key>
 	<string>$(TRUELAYER_CLIENT_ID)</string>
 	<key>DLTrueLayerClientSecret</key>

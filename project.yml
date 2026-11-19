@@ -30,6 +30,11 @@ targets:
     platform: iOS
     sources:
       - path: App
+        excludes:
+          - Resources/DayLedger.storekit
+      # Local StoreKit testing (Simulator / Xcode runs only); referenced by the scheme, not bundled.
+      - path: App/Resources/DayLedger.storekit
+        buildPhase: none
     dependencies:
       - package: DayLedgerKit
         product: SharedModels
@@ -45,6 +50,8 @@ targets:
         product: LocationKit
       - package: DayLedgerKit
         product: AIKit
+      - package: DayLedgerKit
+        product: AccountKit
       - target: DayLedgerWidget
     info:
       path: App/Info.plist
@@ -70,11 +77,17 @@ targets:
         DLTrueLayerEnvironment: $(TRUELAYER_ENVIRONMENT)
         DLGoogleClientID: $(GOOGLE_IOS_CLIENT_ID)
         DLAppGroupID: $(DL_APP_GROUP_ID)
+        DLSupabaseURL: $(SUPABASE_URL)
+        DLSupabaseAnonKey: $(SUPABASE_ANON_KEY)
+        DLTermsURL: $(DL_TERMS_URL)
+        DLPrivacyURL: $(DL_PRIVACY_URL)
     entitlements:
       path: App/DayLedger.entitlements
       properties:
         com.apple.security.application-groups:
           - $(DL_APP_GROUP_ID)
+        com.apple.developer.applesignin:
+          - Default
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(DL_BUNDLE_ID)
@@ -143,6 +156,8 @@ schemes:
         DayLedger: all
     run:
       config: Debug
+      # Lets the paywall load products and buy (sandboxed, free) in the Simulator without App Store Connect.
+      storeKitConfiguration: App/Resources/DayLedger.storekit
     test:
       config: Debug
       targets:

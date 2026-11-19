@@ -7,6 +7,7 @@ struct PrivacyView: View {
     @State private var isConfirming = false
     @State private var isErasing = false
     @State private var resultMessage: String?
+    @State private var resultTitle = "Data deleted"
     @State private var deleteGoogleCalendar = true
 
     var body: some View {
@@ -23,8 +24,10 @@ struct PrivacyView: View {
             }
 
             Section("Where it goes") {
-                PrivacyRow(icon: "iphone", title: "Stays on this device",
-                           detail: "Transactions and visits are stored on your iPhone. Sign-in tokens and API keys are kept in the iOS Keychain and never leave the device except to the service they belong to.")
+                PrivacyRow(icon: "iphone", title: "On this device",
+                           detail: "Transactions and visits are stored on your iPhone so DayLedger works offline. Sign-in tokens and API keys are kept in the iOS Keychain and never leave the device except to the service they belong to.")
+                PrivacyRow(icon: "icloud", title: "Your DayLedger account",
+                           detail: "Transactions, visits and settings sync to your account so they survive a new iPhone. They're encrypted in transit and at rest, and only your account can read them. Bank, Google and AI keys are never uploaded.")
                 PrivacyRow(icon: "arrow.left.arrow.right", title: "TrueLayer and your bank",
                            detail: "TrueLayer passes transactions from your bank to the app. Your bank password is entered on your bank's own page, never in DayLedger.")
                 PrivacyRow(icon: "calendar.badge.plus", title: "Google Calendar",
@@ -32,7 +35,7 @@ struct PrivacyView: View {
                 PrivacyRow(icon: "sparkles", title: "AI provider",
                            detail: "When you ask for suggestions, an anonymised summary is sent: place names with typical days and times, spending per category rounded to £5, and busy/free blocks. Never coordinates, addresses, account numbers, individual transactions or event titles.")
                 PrivacyRow(icon: "xmark.shield", title: "No tracking",
-                           detail: "DayLedger has no analytics, no ads and no servers of its own.")
+                           detail: "DayLedger has no analytics and no ads, and never sells your data.")
             }
 
             Section {
@@ -49,7 +52,7 @@ struct PrivacyView: View {
                 .disabled(isErasing)
                 .accessibilityIdentifier("deleteAllData")
             } footer: {
-                Text("Stops location logging, disconnects your banks, signs out of Google and AI, deletes every transaction and visit on this device, and clears all keys from the Keychain. Data already held by your bank, Google or an AI provider is governed by their own policies.")
+                Text("Deletes your DayLedger account and everything synced to it (if you're signed in), stops location logging, disconnects your banks, signs out of Google and AI, deletes every transaction and visit on this device, and clears all keys from the Keychain. An App Store subscription must be cancelled separately in Settings → Apple ID → Subscriptions. Data already held by your bank, Google or an AI provider is governed by their own policies.")
             }
         }
         .navigationTitle("Privacy & your data")
@@ -59,7 +62,7 @@ struct PrivacyView: View {
         } message: {
             Text("This can't be undone.")
         }
-        .alert("Data deleted", isPresented: Binding(get: { resultMessage != nil }, set: { if !$0 { resultMessage = nil } })) {
+        .alert(resultTitle, isPresented: Binding(get: { resultMessage != nil }, set: { if !$0 { resultMessage = nil } })) {
             Button("OK") { onErased() }
         } message: {
             Text(resultMessage ?? "")
@@ -71,6 +74,12 @@ struct PrivacyView: View {
         Task {
             let report = await eraser.eraseAll(deleteGoogleCalendar: deleteGoogleCalendar)
             isErasing = false
+            if let reason = report.abortedReason {
+                resultTitle = "Nothing was deleted"
+                resultMessage = reason
+                return
+            }
+            resultTitle = "Data deleted"
             resultMessage = report.failures.isEmpty
                 ? "All DayLedger data has been removed from this device."
                 : "Most data was removed, but some items failed:\n" + report.failures.joined(separator: "\n")

@@ -18,6 +18,10 @@ final class StoredVisit {
     var calendarEventID: String?
     var calendarContentHash: String?
     var calendarSyncedAt: Date?
+    /// Last local change, and when the row last matched the cloud copy. Optional so existing
+    /// stores migrate without defaults; a nil `cloudSyncedAt` means "not synced yet".
+    var updatedAt: Date?
+    var cloudSyncedAt: Date?
 
     init(id: String = UUID().uuidString, arrival: Date, departure: Date?, latitude: Double, longitude: Double) {
         self.id = id
@@ -27,6 +31,7 @@ final class StoredVisit {
         self.longitude = longitude
         isNamedPlace = false
         isResolved = false
+        updatedAt = Date()
     }
 
     var domain: PlaceVisit {

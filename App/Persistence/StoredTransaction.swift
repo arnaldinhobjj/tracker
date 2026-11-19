@@ -18,6 +18,9 @@ final class StoredTransaction {
     var hasTime: Bool
     var isPending: Bool
     var updatedAt: Date
+    /// When this row was last known to match the cloud copy (pushed or pulled). Nil: never synced.
+    /// Optional so existing stores migrate without a default.
+    var cloudSyncedAt: Date?
 
     init(_ transaction: BankTransaction, updatedAt: Date = Date()) {
         id = transaction.id

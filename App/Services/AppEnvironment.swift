@@ -1,3 +1,4 @@
+import AccountKit
 import AIKit
 import BankKit
 import CalendarKit
@@ -29,6 +30,14 @@ final class AppEnvironment {
     let aiProviders: [AIProvider]
     /// True when launched by UI tests: in-memory store, mock bank, no Keychain.
     let isUITesting: Bool
+    /// DayLedger account (Supabase), subscription and cloud sync.
+    let auth: AuthServicing
+    let account: AccountController
+    let subscriptions: SubscriptionManager
+    let cloudSync: CloudSyncService
+    /// PostgREST / Edge Functions for the signed-in user. Nil without a backend (not configured,
+    /// UI tests, developer account).
+    let cloudREST: SupabaseRESTClient?
 
     init(
         configuration: AppConfiguration,
@@ -36,7 +45,9 @@ final class AppEnvironment {
         defaults: UserDefaults,
         secureStore: SecureStoring,
         bankService: BankService,
-        isUITesting: Bool
+        isUITesting: Bool,
+        auth injectedAuth: AuthServicing? = nil,
+        developerUser: AuthUser? = nil
     ) {
         self.configuration = configuration
         self.modelContainer = modelContainer
@@ -47,7 +58,8 @@ final class AppEnvironment {
         transactionRepository = TransactionRepository(container: modelContainer)
         transactionSync = TransactionSyncService(bank: bankService, repository: transactionRepository, defaults: defaults)
         widgetPublisher = WidgetPublisher(
-            store: isUITesting ? nil : WidgetSnapshotStore(appGroupID: configuration.appGroupID),
+            // The developer account shows mock data, which must not reach the real widget.
+            store: isUITesting || developerUser != nil ? nil : WidgetSnapshotStore(appGroupID: configuration.appGroupID),
             repository: transactionRepository,
             bank: bankService
         )
@@ -69,6 +81,29 @@ final class AppEnvironment {
             settings: settings
         )
 
+        let supabase = SupabaseConfiguration(urlString: configuration.supabaseURL, anonKey: configuration.supabaseAnonKey)
+        let auth: AuthServicing
+        if let injectedAuth {
+            auth = injectedAuth
+        } else if isUITesting {
+            auth = MockAuthService(isConfigured: false)
+        } else {
+            auth = SupabaseAuthService(configuration: supabase, store: secureStore)
+        }
+        self.auth = auth
+        // No backend calls in UI tests, for the developer account, or without configuration.
+        let usesBackend = !isUITesting && developerUser == nil && supabase.isConfigured
+        let rest = usesBackend ? SupabaseRESTClient(configuration: supabase, tokens: auth) : nil
+        cloudREST = rest
+        account = AccountController(auth: auth, developerUser: developerUser)
+        subscriptions = SubscriptionManager(
+            mode: isUITesting ? .disabled : developerUser != nil ? .alwaysEntitled : .live,
+            rest: rest,
+            defaults: defaults
+        )
+        cloudSync = CloudSyncService(rest: rest, transactions: transactionRepository, visits: visitRepository,
+                                     settings: settings, defaults: defaults)
+
         aiProviders = [
             AnthropicProvider(apiKey: { [secureStore] in
                 try secureStore.string(for: SecureStoreKey.aiAPIKey(provider: "anthropic"))
@@ -76,16 +111,59 @@ final class AppEnvironment {
         ]
 
         // New transactions can complete a visit's spending, so re-sync the calendar after each bank sync.
-        transactionSync.onSynced = { [widgetPublisher, calendarSync] in
+        transactionSync.onSynced = { [widgetPublisher, calendarSync, cloudSync] in
             widgetPublisher.publish()
-            Task { await calendarSync.sync() }
+            Task {
+                await calendarSync.sync()
+                await cloudSync.sync()
+            }
         }
-        locationLogging.onVisitsChanged = { [calendarSync] in
+        locationLogging.onVisitsChanged = { [calendarSync, cloudSync] in
             await calendarSync.sync()
+            await cloudSync.sync()
         }
+        wireAccount()
         // Must happen at launch: when iOS relaunches the app for a visit, the location manager
         // has to exist (with monitoring on) to receive it.
         locationLogging.resumeIfEnabled()
+    }
+
+    /// Connects the account, the subscription and cloud sync.
+    private func wireAccount() {
+        let account = self.account
+        let subscriptions = self.subscriptions
+        let cloudSync = self.cloudSync
+        let widgetPublisher = self.widgetPublisher
+
+        cloudSync.currentUserID = {
+            account.isDeveloperAccount ? nil : account.user?.id
+        }
+        cloudSync.canWrite = { subscriptions.isEntitled }
+        cloudSync.onSessionExpired = { account.sessionExpired() }
+        cloudSync.onDataChanged = { widgetPublisher.publish() }
+        subscriptions.onSessionExpired = { account.sessionExpired() }
+        subscriptions.onEntitled = {
+            Task { await cloudSync.sync() }
+        }
+        account.onSignedIn = { [weak self] user in
+            cloudSync.cancelInFlight()
+            Task { @MainActor in
+                // A different person signing in on this iPhone must not see, or upload, the
+                // previous account's data: wipe it before anything syncs.
+                if let self {
+                    await DataEraser(environment: self).wipeIfDifferentAccount(newUserID: user.id)
+                }
+                subscriptions.setUser(user.id)
+                await cloudSync.sync()
+            }
+        }
+        account.onSignedOut = {
+            cloudSync.cancelInFlight()
+            subscriptions.reset()
+        }
+        if !account.isDeveloperAccount {
+            subscriptions.setUser(account.user?.id)
+        }
     }
 
     /// Entry point for BGAppRefreshTask: fetch, store, update the widget, schedule the next one.
@@ -95,6 +173,13 @@ final class AppEnvironment {
         widgetPublisher.publish()
         await locationLogging.resolvePending()
         await calendarSync.sync()
+        await cloudSync.sync()
+    }
+
+    /// Stops long-running listeners before this environment is replaced (developer sign-in/out).
+    func shutDown() {
+        subscriptions.stopListening()
+        locationLogging.monitor.stopMonitoring()
     }
 
     static func makeDefault(processInfo: ProcessInfo = .processInfo) -> AppEnvironment {
@@ -111,6 +196,21 @@ final class AppEnvironment {
                 isUITesting: true
             )
         }
+
+        #if DEBUG
+        // Debug-only developer login: mock bank, in-memory data, no backend (see DeveloperLogin).
+        if DeveloperLogin.isSignedIn() {
+            return AppEnvironment(
+                configuration: configuration,
+                modelContainer: PersistenceController.makeContainer(appGroupID: "", inMemory: true),
+                defaults: UserDefaults(suiteName: "app.dayledger.developer") ?? .standard,
+                secureStore: InMemorySecureStore(),
+                bankService: MockBankService(connected: true),
+                isUITesting: false,
+                developerUser: DeveloperLogin.user
+            )
+        }
+        #endif
 
         let defaults = UserDefaults(suiteName: configuration.appGroupID.isEmpty ? nil : configuration.appGroupID) ?? .standard
         let secureStore = KeychainStore()

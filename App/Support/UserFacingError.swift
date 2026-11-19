@@ -1,3 +1,4 @@
+import AccountKit
 import AIKit
 import BankKit
 import CalendarKit
@@ -35,6 +36,8 @@ struct UserFacingError: Equatable, Identifiable {
             self = Self.calendar(error)
         case let error as AIError:
             self = Self.ai(error)
+        case let error as AuthError:
+            self = Self.auth(error)
         default:
             self = UserFacingError(title: "Something went wrong", message: error.localizedDescription, action: .retry)
         }
@@ -55,6 +58,34 @@ struct UserFacingError: Equatable, Identifiable {
         case .invalidResponse, .decoding, .transport:
             return UserFacingError(title: "Unexpected response", message: "Something went wrong talking to the server. Try again later.", action: .retry)
         }
+    }
+
+    /// Account errors shown on the login screens.
+    static func auth(_ error: AuthError) -> UserFacingError {
+        switch error {
+        case .invalidCredentials:
+            return UserFacingError(title: "Couldn't log in", message: "That email and password don't match. Check them and try again.")
+        case .emailNotConfirmed:
+            return UserFacingError(title: "Confirm your email first", message: "Open the link we emailed you, then log in.")
+        case .userAlreadyExists:
+            return UserFacingError(title: "You already have an account", message: "Log in with that email instead, or reset your password.")
+        case .weakPassword:
+            return UserFacingError(title: "Choose a stronger password", message: "Use at least 8 characters. A few words together work well.")
+        case .network(let error):
+            return network(error)
+        case .sessionExpired:
+            return UserFacingError(title: "Please log in again", message: "Your session has ended.")
+        case .notConfigured:
+            return UserFacingError(title: "Accounts aren't set up yet",
+                                   message: "This build has no account server. Add SUPABASE_URL and SUPABASE_ANON_KEY to Config/Local.xcconfig, then rebuild.")
+        case .other(let message):
+            return UserFacingError(title: "Something went wrong", message: message, action: .retry)
+        }
+    }
+
+    /// Like `init(_:)`, for errors from the account and subscription screens.
+    static func account(_ error: Error) -> UserFacingError {
+        UserFacingError(error)
     }
 
     static func ai(_ error: AIError) -> UserFacingError {

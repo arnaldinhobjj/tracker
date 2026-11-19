@@ -13,6 +13,7 @@ let package = Package(
         .library(name: "CalendarKit", targets: ["CalendarKit"]),
         .library(name: "LocationKit", targets: ["LocationKit"]),
         .library(name: "AIKit", targets: ["AIKit"]),
+        .library(name: "AccountKit", targets: ["AccountKit"]),
     ],
     targets: [
         // Pure value types shared by the app, the widget and every feature module.
@@ -32,9 +33,13 @@ let package = Package(
         // Opt-in AI scheduling assistant: provider protocol, anonymised summary, proposal parsing.
         .target(name: "AIKit", dependencies: ["SharedModels", "Networking"]),
 
+        // DayLedger account: Supabase Auth (email, Apple, Google), PostgREST sync client, entitlement.
+        .target(name: "AccountKit", dependencies: ["Networking", "SecureStore"]),
+
         .testTarget(name: "AIKitTests", dependencies: ["AIKit", "SharedModels", "Networking"]),
         .testTarget(name: "CalendarKitTests", dependencies: ["CalendarKit", "SharedModels", "Networking", "SecureStore"]),
         .testTarget(name: "SharedModelsTests", dependencies: ["SharedModels"]),
         .testTarget(name: "BankKitTests", dependencies: ["BankKit", "SharedModels", "Networking", "SecureStore"]),
+        .testTarget(name: "AccountKitTests", dependencies: ["AccountKit", "Networking", "SecureStore"]),
     ]
 )

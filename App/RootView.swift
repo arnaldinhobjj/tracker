@@ -46,6 +46,10 @@ struct RootView: View {
                 Task { await today.onAppear() }
             }
         }
+        .onChange(of: environment.cloudSync.lastSync) { _, _ in
+            // Pulled changes from another device.
+            today.reloadFromCache()
+        }
         .onChange(of: bankModel.connections) { _, _ in
             today.reloadFromCache()
             environment.widgetPublisher.publish()

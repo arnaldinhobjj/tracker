@@ -9,6 +9,8 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                AccountSettingsSection(environment: environment, onDataErased: onDataErased)
+
                 BankConnectionsSection(model: bankModel)
 
                 LocationSettingsSection(environment: environment, settings: environment.settings)
