@@ -59,6 +59,9 @@
 		A091C35FF70F13D017B4CC82 /* UserFacingError.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3C5E3A936929C76FA753FE6 /* UserFacingError.swift */; };
 		A108D191ECF2A03B14BCE7D3 /* AccountTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3D695265B289E6674FE02EF /* AccountTests.swift */; };
 		A4F1D743EE39CA4967FD44E3 /* AppConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18906B2BD101695C7EE0DC98 /* AppConfiguration.swift */; };
+		A522419CD34B7388BD8032F0 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = D6ECD22C48F909FE57E0E74E /* PrivacyInfo.xcprivacy */; };
+		A53CC785DEB26B60C8BBB328 /* CloudSyncSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A33096FF42548B2E78FFBB /* CloudSyncSettingsSection.swift */; };
+		AE3C980139C46D7D7796051E /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 729C82223F0FEA1490B97F2D /* PrivacyInfo.xcprivacy */; };
 		B1FB04B41B437490986CB693 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76DA3A7F1999BD0455A85F96 /* RootView.swift */; };
 		BD8D35D938CBA4BB7C994F59 /* LocationLoggingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA204CCFA01BA039DD1254CA /* LocationLoggingService.swift */; };
 		C2CC5F1E02BA371EB99D2066 /* AccountKit in Frameworks */ = {isa = PBXBuildFile; productRef = AEE4B5E27A6BC40F45B9C034 /* AccountKit */; };
@@ -120,6 +123,7 @@
 		1286669E58BDC7A212FD12DD /* StoredVisit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoredVisit.swift; sourceTree = "<group>"; };
 		16513DE438FCB182CB1F68C2 /* TodayViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayViewModel.swift; sourceTree = "<group>"; };
 		18906B2BD101695C7EE0DC98 /* AppConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfiguration.swift; sourceTree = "<group>"; };
+		18A7AC8888B299A4DAC59FF7 /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 		2AAF147BD459AD2BB79811B0 /* AccountSwitchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountSwitchTests.swift; sourceTree = "<group>"; };
 		2B47B0093961B07CB4855A99 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		2BDACBB32BB907C9A82A1937 /* SpendProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpendProvider.swift; sourceTree = "<group>"; };
@@ -140,6 +144,7 @@
 		6B53FE2AACD9B06C366CFF6E /* DayLedgerWidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayLedgerWidgetBundle.swift; sourceTree = "<group>"; };
 		703557938D2C04AB9CB5B891 /* DeveloperLogin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperLogin.swift; sourceTree = "<group>"; };
 		7162884E2817615EE49E1170 /* CalendarSyncServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarSyncServiceTests.swift; sourceTree = "<group>"; };
+		729C82223F0FEA1490B97F2D /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		7399DCD528FEEC3A2C5505DC /* AppEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEnvironment.swift; sourceTree = "<group>"; };
 		76DA3A7F1999BD0455A85F96 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		76FCDB8860633E672EE797D6 /* DayLedgerUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = DayLedgerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -166,12 +171,14 @@
 		D3BA7A6E88F7C7C0BE02DD6F /* AccountController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountController.swift; sourceTree = "<group>"; };
 		D5DBD829366FB5896E903F00 /* PaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallView.swift; sourceTree = "<group>"; };
 		D6416A5CE1F6A035D5988EC7 /* CloudSyncServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudSyncServiceTests.swift; sourceTree = "<group>"; };
+		D6ECD22C48F909FE57E0E74E /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		DA60C229278219DAFB48A3FB /* DayLedger.storekit */ = {isa = PBXFileReference; path = DayLedger.storekit; sourceTree = "<group>"; };
 		E3D695265B289E6674FE02EF /* AccountTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountTests.swift; sourceTree = "<group>"; };
 		E4756F3F6A51909994567343 /* AISettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AISettingsSection.swift; sourceTree = "<group>"; };
 		E4FE49223DCDCC41C1155604 /* VisitRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisitRepository.swift; sourceTree = "<group>"; };
 		E9612F8BFD6DAFCE12CE6055 /* DayLedger.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DayLedger.entitlements; sourceTree = "<group>"; };
 		EC5E4F7A6381ECC583886369 /* TodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayView.swift; sourceTree = "<group>"; };
+		F0A33096FF42548B2E78FFBB /* CloudSyncSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudSyncSettingsSection.swift; sourceTree = "<group>"; };
 		F0DAC7B649B8E1EB078CB72C /* AssistantView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantView.swift; sourceTree = "<group>"; };
 		F2854B7A8CC2B48C31D6F414 /* PrivacyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyView.swift; sourceTree = "<group>"; };
 		F4010329A1F675703A504AD2 /* TransactionRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransactionRepository.swift; sourceTree = "<group>"; };
@@ -215,6 +222,7 @@
 				0A129AA49AD787F91789B9FA /* DayLedgerWidget.entitlements */,
 				6B53FE2AACD9B06C366CFF6E /* DayLedgerWidgetBundle.swift */,
 				67381585BE28958806D9452D /* Info.plist */,
+				D6ECD22C48F909FE57E0E74E /* PrivacyInfo.xcprivacy */,
 				2BDACBB32BB907C9A82A1937 /* SpendProvider.swift */,
 				FB03961D1EF994797468B03A /* SpendWidgetViews.swift */,
 			);
@@ -262,6 +270,7 @@
 				BC7855C109CA947560F6C882 /* AccountSettingsSection.swift */,
 				E4756F3F6A51909994567343 /* AISettingsSection.swift */,
 				7FF38CD569C1321C0FA719E0 /* CalendarSettingsSection.swift */,
+				F0A33096FF42548B2E78FFBB /* CloudSyncSettingsSection.swift */,
 				4D8EF86825E39A1DB2B1DD1B /* LocationSettingsSection.swift */,
 				35A9AA6A42E3433B3EF68F65 /* SettingsView.swift */,
 			);
@@ -314,6 +323,7 @@
 				E9612F8BFD6DAFCE12CE6055 /* DayLedger.entitlements */,
 				2D34510AB02D32675ED46C35 /* DayLedgerApp.swift */,
 				CEAC528800969BC163066304 /* Info.plist */,
+				729C82223F0FEA1490B97F2D /* PrivacyInfo.xcprivacy */,
 				76DA3A7F1999BD0455A85F96 /* RootView.swift */,
 				6E599C2F3A8484B1D43626D2 /* Features */,
 				AC6F34C419C843CB3DC78FC3 /* Persistence */,
@@ -385,6 +395,7 @@
 			isa = PBXGroup;
 			children = (
 				B6124A622B0AC79CF289E3E4 /* Base.xcconfig */,
+				18A7AC8888B299A4DAC59FF7 /* Release.xcconfig */,
 			);
 			path = Config;
 			sourceTree = "<group>";
@@ -594,6 +605,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				5414E483B34BD23EDB9147DF /* Assets.xcassets in Resources */,
+				AE3C980139C46D7D7796051E /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -602,6 +614,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				57B4BD473C2BF789C5DEBC65 /* Assets.xcassets in Resources */,
+				A522419CD34B7388BD8032F0 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -627,6 +640,7 @@
 				80B0A9DC05B4182668B959BB /* CalendarSettingsSection.swift in Sources */,
 				1C8E260C0112A575BCCE39C4 /* CalendarSyncService.swift in Sources */,
 				97F1053E6DE500F7A1804AD1 /* CloudSyncService.swift in Sources */,
+				A53CC785DEB26B60C8BBB328 /* CloudSyncSettingsSection.swift in Sources */,
 				3CFE45CAAD8500F23E90C575 /* DataEraser.swift in Sources */,
 				312365316B6899267F6797AD /* DayLedgerApp.swift in Sources */,
 				D6614DE24F10BA6B3F423100 /* DeveloperLogin.swift in Sources */,
@@ -745,7 +759,7 @@
 		};
 		519CCDC34F9DCA6E7DE7CC4D /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = B6124A622B0AC79CF289E3E4 /* Base.xcconfig */;
+			baseConfigurationReference = 18A7AC8888B299A4DAC59FF7 /* Release.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
