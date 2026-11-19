@@ -72,6 +72,7 @@ struct CalendarSettingsSection: View {
                     ProgressView()
                 } else {
                     Label("Allow calendar access", systemImage: "calendar.badge.plus")
+                        .font(.body)
                 }
             }
             .disabled(isRequestingAccess)
