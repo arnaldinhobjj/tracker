@@ -8,6 +8,13 @@ struct DayLedgerApp: App {
     @State private var root = AppRoot()
     @Environment(\.scenePhase) private var scenePhase
 
+    init() {
+        // BGProcessingTask handlers must be registered before launch finishes. (The app refresh
+        // task is handled by SwiftUI's `.backgroundTask` below.)
+        BackgroundRefresh.registerProcessing()
+        MetricsReporter.shared.start()
+    }
+
     var body: some Scene {
         WindowGroup {
             AppGateView(environment: root.environment)
@@ -24,18 +31,15 @@ struct DayLedgerApp: App {
             let environment = root.environment
             switch phase {
             case .active:
-                // Also handles midnight rollover while the app was closed.
+                // Every launch, not only when going to the background, so refreshes keep coming
+                // even if the app is never backgrounded normally (e.g. it's killed).
+                BackgroundRefresh.schedule()
+                // Midnight rollover while the app was closed: update the widget straight away.
                 environment.widgetPublisher.publish()
-                Task {
-                    await environment.locationLogging.resolvePending()
-                    await environment.calendarSync.sync()
-                    if environment.account.isSignedIn {
-                        await environment.subscriptions.refreshEntitlement()
-                        await environment.cloudSync.sync()
-                    }
-                }
+                Task { await environment.appDidBecomeActive() }
             case .background:
                 BackgroundRefresh.schedule()
+                BackgroundRefresh.scheduleProcessing()
             default:
                 break
             }
@@ -62,6 +66,12 @@ final class AppRoot {
         environment.account.onDeveloperSessionChanged = { [weak self] in
             self?.rebuild()
         }
+        BackgroundRefresh.processingHandler = { [weak self] in
+            await self?.environment.performBackgroundProcessing()
+        }
+        // Don't submit the app refresh request here: SwiftUI registers the `.backgroundTask`
+        // handler only once the scene exists, and submitting before that is an assertion failure.
+        // It is scheduled when the app becomes active (every launch) and goes to the background.
     }
 
     private func rebuild() {

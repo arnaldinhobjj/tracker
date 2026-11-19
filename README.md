@@ -171,6 +171,11 @@ Key flows:
 - **No duplicates**: Google event IDs are derived from visit IDs (`CalendarEventID`). Inserting an existing ID returns 409 and the app updates instead. A content hash skips events that haven't changed.
 - **Local-first**: nothing requires an account. `AppGate.proAccess` decides only whether DayLedger Pro features (cloud sync, AI suggestions) are available; sign-in and the paywall are sheets opened from Settings or from a Pro feature.
 - **Cloud sync** (signed in): `CloudSyncService` pulls changes, then pushes. Transactions, and visits when visit sync is on, are sealed with AES-256-GCM using the account's sync key (`SyncKeyManager`, iCloud Keychain) before upload; see `docs/backend-contract.md`, "Encryption".
+- **One sync pipeline**: every trigger (foreground, background task, a visit, a bank sync, sign-in, a new subscription) asks `SyncCoordinator` for the steps it needs. Steps always run as bank → places → widget → calendar → entitlement → cloud, and overlapping requests are merged, so nothing runs twice in parallel.
+- **Persistence**: SwiftData with a versioned schema (`App/Persistence/SchemaVersions.swift`, `DayLedgerMigrationPlan`). To change a stored model, add a schema version and a migration stage, and add a test that opens a store written by the previous version (`PersistenceMigrationTests`). Rows to upload are found by a `needsCloudPush` flag; deletions waiting for the cloud are a SwiftData model. A store that can't be opened is moved aside (`DayLedger.store.unreadable-<time>`, never deleted) and replaced, and everything is fetched again.
+- **Resumable pulls**: each page of cloud changes is applied and its cursor saved before the next page is fetched.
+- **Logging and metrics**: `os.Logger` (subsystem `app.dayledger`; categories `sync`, `persistence`, `subscriptions`, `background`, `metrics`), private by default. MetricKit payloads (crashes, hangs, CPU, background location time) are logged and the latest 20 are kept in `Caches/MetricKit`; nothing is sent anywhere.
+- **Background processing**: `BGProcessingTask` (`app.dayledger.processing`, needs network) runs the full pipeline when iOS allows longer work, e.g. a first cloud sync.
 - **Background refresh**: `BGAppRefreshTask` (`app.dayledger.refresh`) fetches transactions, updates the widget and syncs the calendar when iOS allows.
 
 ## Privacy and security
@@ -195,7 +200,7 @@ Unit tests:
 - `BankKitTests`: TrueLayer parsing, categorisation, spending maths, token refresh, expired consent, the backend token exchange (no secret sent, error mapping).
 - `AccountKitTests`: auth, entitlement, PostgREST client, encrypted sync rows (no plaintext uploaded, legacy rows read), AES-GCM sealing (tampering, wrong key, rows bound to user and id), sync key registration races.
 - `SharedModelsTests`: widget snapshot, visit merging.
-- `DayLedgerTests`: Today view model (offline cache), pending→settled replacement, end-to-end calendar sync without duplicates, cloud sync (encryption, plaintext → encrypted upgrade, missing key, opt-in visit sync, start over), local-first gating, token exchanger selection.
+- `DayLedgerTests`: Today view model (offline cache), pending→settled replacement, end-to-end calendar sync without duplicates, cloud sync (encryption, plaintext → encrypted upgrade, missing key, opt-in visit sync, start over, resumable pulls), local-first gating, token exchanger selection, the sync coordinator (order, merging), store migration from schema V1 and recovery from an unreadable store.
 - `supabase/`: Deno tests for the Edge Functions (including `truelayer-token`) and pgTAP tests for the schema (including `06_encryption.test.sql`), run by `.github/workflows/backend.yml`.
 - `DayLedgerUITests`: launches the app with mock data (Today, Privacy, Places, Suggest).
 
@@ -224,6 +229,9 @@ cd Packages/DayLedgerKit && xcodebuild test -scheme DayLedgerKit-Package -destin
 | "Always" permission upgrade prompt | iOS shows it once, with its own timing | Settings → Location → Allow logging in the background |
 | MapKit place names | Accuracy depends on real coordinates and Apple's POI data | Compare Places entries with where you actually were |
 | Background app refresh | iOS schedules it heuristically; never on demand in normal use | In Xcode's debugger: `e -l objc -- (void)[[BGTaskScheduler sharedScheduler] _simulateLaunchForTaskWithIdentifier:@"app.dayledger.refresh"]` |
+| Background processing task | Same | Same command with `@"app.dayledger.processing"` |
+| MetricKit payloads | Delivered by iOS about once a day on a device | Xcode → Debug → Simulate MetricKit Payloads, then check `Caches/MetricKit` and the `metrics` log category |
+| Store migration on a real upgrade | Needs a device with the previous build's data | Install the previous build, use it, install this one: data and pending uploads survive (also covered by `PersistenceMigrationTests`) |
 | Widgets with real data and App Group sharing | Needs signing with your team (CI builds unsigned) | Add the widgets, make a purchase, refresh the app |
 | Lock screen privacy redaction | Device-only behaviour | Lock the phone with the widget on the lock screen |
 | AI suggestions | Needs your Anthropic API key and a few weeks of visits | Preview the summary, then Suggest and approve one |

@@ -2,6 +2,7 @@ import Foundation
 import SharedModels
 import SwiftData
 
+/// Changing stored properties needs a new schema version (see SchemaVersions.swift).
 @Model
 final class StoredVisit {
     @Attribute(.unique) var id: String
@@ -22,6 +23,8 @@ final class StoredVisit {
     /// stores migrate without defaults; a nil `cloudSyncedAt` means "not synced yet".
     var updatedAt: Date?
     var cloudSyncedAt: Date?
+    /// True while this visit has local changes the cloud doesn't have yet (SchemaV2).
+    var needsCloudPush: Bool = true
 
     init(id: String = UUID().uuidString, arrival: Date, departure: Date?, latitude: Double, longitude: Double) {
         self.id = id
@@ -32,6 +35,12 @@ final class StoredVisit {
         isNamedPlace = false
         isResolved = false
         updatedAt = Date()
+    }
+
+    /// Records a change that should reach the cloud.
+    func touch(_ date: Date = Date()) {
+        updatedAt = date
+        needsCloudPush = true
     }
 
     var domain: PlaceVisit {

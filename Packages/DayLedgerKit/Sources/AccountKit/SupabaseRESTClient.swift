@@ -135,18 +135,31 @@ public final class SupabaseRESTClient: @unchecked Sendable {
     public func fetchChanges<Row: SyncRow>(_ type: Row.Type, from table: String, after cursor: SyncCursor?,
                                            hasIDColumn: Bool = true, pageSize: Int = SupabaseRESTClient.pageSize) async throws -> (rows: [Row], cursor: SyncCursor?) {
         var all: [Row] = []
+        var last = cursor
+        try await forEachChangePage(type, from: table, after: cursor, hasIDColumn: hasIDColumn, pageSize: pageSize) { page, position in
+            all.append(contentsOf: page)
+            last = position
+        }
+        return (all, last)
+    }
+
+    /// Every row changed after `cursor`, one page at a time: `body` gets each page and the cursor
+    /// to store once that page has been applied. Pages are fetched only after `body` returns, so
+    /// a caller that saves the cursor in `body` can resume an interrupted pull where it stopped.
+    public func forEachChangePage<Row: SyncRow>(_ type: Row.Type, from table: String, after cursor: SyncCursor?,
+                                                hasIDColumn: Bool = true, pageSize: Int = SupabaseRESTClient.pageSize,
+                                                _ body: ([Row], SyncCursor?) async throws -> Void) async throws {
         var position = cursor
         while true {
             let page = try await fetchPage(type, from: table, after: position, hasIDColumn: hasIDColumn, limit: pageSize)
-            all.append(contentsOf: page)
             if let last = page.last, let updatedAt = last.updatedAt {
                 position = SyncCursor(updatedAt: updatedAt, id: hasIDColumn ? last.cursorID : nil)
             }
+            try await body(page, position)
             if page.count < pageSize { break }
             // A full page without a usable cursor would loop forever.
             if page.last?.updatedAt == nil { break }
         }
-        return (all, position)
     }
 
     /// `POST /rest/v1/rpc/<name>`.

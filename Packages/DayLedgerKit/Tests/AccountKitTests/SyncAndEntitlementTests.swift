@@ -308,6 +308,22 @@ final class SupabaseRESTClientTests: XCTestCase {
         XCTAssertTrue(requests[1].url?.absoluteString.contains("%2B00%3A00") == true, "+ is percent-encoded")
     }
 
+    func testEachPageIsHandedOverBeforeTheNextIsFetched() async throws {
+        let http = StubHTTPClient()
+        http.on("/rest/v1/visits", body: "[\(visitJSON("a", updatedAt: "2026-11-18T09:00:00+00:00")),\(visitJSON("b", updatedAt: "2026-11-18T09:01:00+00:00"))]")
+        http.on("/rest/v1/visits", body: "[\(visitJSON("c", updatedAt: "2026-11-18T09:05:00+00:00"))]")
+        var seen: [(ids: [String], cursor: SyncCursor?, requestsSoFar: Int)] = []
+
+        try await makeClient(http: http).forEachChangePage(VisitSyncRow.self, from: "visits", after: nil, pageSize: 2) { rows, cursor in
+            seen.append((rows.map(\.id), cursor, http.requests(to: "/rest/v1/visits").count))
+        }
+
+        XCTAssertEqual(seen.map { $0.ids }, [["a", "b"], ["c"]])
+        XCTAssertEqual(seen.map { $0.requestsSoFar }, [1, 2], "Page 2 is fetched only after page 1 was handled")
+        XCTAssertEqual(seen.first?.cursor, SyncCursor(updatedAt: "2026-11-18T09:01:00+00:00", id: "b"))
+        XCTAssertEqual(seen.last?.cursor, SyncCursor(updatedAt: "2026-11-18T09:05:00+00:00", id: "c"))
+    }
+
     func testUpsertBatchesWithMergeDuplicates() async throws {
         let http = StubHTTPClient()
         http.on("/rest/v1/transactions", status: 201, body: "")

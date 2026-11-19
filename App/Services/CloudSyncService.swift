@@ -93,11 +93,11 @@ final class CloudSyncService {
     static let transactionsTable = TransactionSyncRow.table
     static let visitsTable = VisitSyncRow.table
     static let settingsTable = "user_settings"
-    private static let tombstonesKey = "cloud.pendingDeletes.v2"
-    /// Before encryption, pending deletions were stored as plaintext sync rows under this key.
+    /// Where earlier versions kept pending deletions (now in SwiftData): Sprint 1 …
+    private static let legacyTombstonesV2Key = "cloud.pendingDeletes.v2"
+    /// … and, before encryption, as plaintext sync rows.
     private static let legacyTombstonesKey = "cloud.pendingDeletes.transactions"
     private static let lastUserKey = "cloud.lastUserID"
-    private static let maxTombstones = 2_000
 
     init(rest: SupabaseRESTClient?, keys: SyncKeyManager, transactions: TransactionRepository, visits: VisitRepository,
          settings: AppSettings, defaults: UserDefaults) {
@@ -175,7 +175,6 @@ final class CloudSyncService {
                     setLegacyVisits(false, userID: userID)
                 }
             }
-            defaults.set(key.id, forKey: keyIDKey(userID))
             lastSync = now
             error = nil
         } catch is CancellationError {
@@ -218,6 +217,9 @@ final class CloudSyncService {
             transactions.resetCloudSyncState()
             visits.resetCloudSyncState()
         }
+        // Recorded now, not after the sync succeeds: an interrupted re-read then resumes from its
+        // saved cursor instead of starting from the beginning again.
+        defaults.set(key.id, forKey: keyIDKey(userID))
     }
 
     /// "Start over": for when the key can't be recovered (iCloud Keychain lost or off). Deletes
@@ -243,16 +245,21 @@ final class CloudSyncService {
     // MARK: Transactions
 
     private func pullTransactions(userID: UUID, rest: SupabaseRESTClient, key: SyncKey, now: Date) async throws -> Bool {
-        let result = try await rest.fetchChanges(TransactionSyncRow.self, from: Self.transactionsTable, after: cursor(Self.transactionsTable, userID))
-        try ensureCurrent(userID)
-        let readable = Self.readable(result.rows, open: { try $0.opening(with: key) }, isDeletion: { $0.deletedAt != nil })
-        // Plaintext tombstones from older versions: queue an encrypted tombstone, which overwrites
-        // (or, without a subscription, hard-deletes) the plaintext left on the server.
-        let legacyDeleted = readable.filter { $0.isLegacyPlaintext && $0.deletedAt != nil }.compactMap(\.bankTransaction)
-        let pending = Set(pendingTombstones().map(\.transaction.id))
-        let changed = try transactions.applyRemote(readable, pendingDeletionIDs: pending, now: now)
-        recordDeleted(legacyDeleted)
-        saveCursor(result.cursor, table: Self.transactionsTable, userID: userID)
+        var changed = false
+        // Each page is applied and its cursor saved before the next is fetched, so an interrupted
+        // first sync (a year of data) resumes where it stopped instead of starting again.
+        try await rest.forEachChangePage(TransactionSyncRow.self, from: Self.transactionsTable,
+                                         after: cursor(Self.transactionsTable, userID)) { rows, pageCursor in
+            try ensureCurrent(userID)
+            let readable = Self.readable(rows, open: { try $0.opening(with: key) }, isDeletion: { $0.deletedAt != nil })
+            // Plaintext tombstones from older versions: queue an encrypted tombstone, which
+            // overwrites (or, without a subscription, hard-deletes) the plaintext on the server.
+            let legacyDeleted = readable.filter { $0.isLegacyPlaintext && $0.deletedAt != nil }.compactMap(\.bankTransaction)
+            let pending = Set(pendingTombstones().map(\.transaction.id))
+            changed = try transactions.applyRemote(readable, pendingDeletionIDs: pending, now: now) || changed
+            recordDeleted(legacyDeleted)
+            saveCursor(pageCursor, table: Self.transactionsTable, userID: userID)
+        }
         return changed
     }
 
@@ -297,46 +304,47 @@ final class CloudSyncService {
     }
 
     /// A transaction removed on this device whose deletion hasn't reached the account yet.
-    struct PendingDeletion: Codable, Equatable {
+    struct PendingDeletion: Equatable {
         var transaction: BankTransaction
         var deletedAt: Date
     }
 
     private func recordDeleted(_ removed: [BankTransaction]) {
-        guard !removed.isEmpty else { return }
-        let deletedAt = Date()
-        var rows = pendingTombstones()
-        rows.append(contentsOf: removed.map { PendingDeletion(transaction: $0, deletedAt: deletedAt) })
-        if rows.count > Self.maxTombstones { rows.removeFirst(rows.count - Self.maxTombstones) }
-        saveTombstones(rows)
+        transactions.addPendingDeletions(removed)
     }
 
+    /// Oldest first. Stored in SwiftData; deletions queued by earlier versions in UserDefaults are
+    /// moved over the first time.
     func pendingTombstones() -> [PendingDeletion] {
-        if let data = defaults.data(forKey: Self.tombstonesKey) {
-            return (try? JSONDecoder().decode([PendingDeletion].self, from: data)) ?? []
-        }
-        // Written by a version without encryption: plaintext sync rows. Convert once.
-        guard let legacy = defaults.data(forKey: Self.legacyTombstonesKey) else { return [] }
-        let rows = (try? JSONDecoder().decode([TransactionSyncRow].self, from: legacy)) ?? []
-        let converted = rows.compactMap { row in
-            row.bankTransaction.map { PendingDeletion(transaction: $0, deletedAt: row.deletedAt ?? Date()) }
-        }
-        saveTombstones(converted)
-        defaults.removeObject(forKey: Self.legacyTombstonesKey)
-        return converted
-    }
-
-    private func saveTombstones(_ rows: [PendingDeletion]) {
-        if rows.isEmpty {
-            defaults.removeObject(forKey: Self.tombstonesKey)
-        } else if let data = try? JSONEncoder().encode(rows) {
-            defaults.set(data, forKey: Self.tombstonesKey)
-        }
+        migrateLegacyTombstones()
+        return transactions.pendingDeletions().map { PendingDeletion(transaction: $0.transaction, deletedAt: $0.deletedAt) }
     }
 
     private func clearTombstones(_ ids: Set<String>) {
-        guard !ids.isEmpty else { return }
-        saveTombstones(pendingTombstones().filter { !ids.contains($0.transaction.id) })
+        transactions.removePendingDeletions(ids: ids)
+    }
+
+    /// Sprint 1 kept pending deletions as JSON in UserDefaults (`v2`: `PendingDeletion`s; before
+    /// that, plaintext sync rows). Moved into SwiftData once, then removed from UserDefaults.
+    private func migrateLegacyTombstones() {
+        struct LegacyPendingDeletion: Decodable {
+            var transaction: BankTransaction
+            var deletedAt: Date
+        }
+        var moved: [(BankTransaction, Date)] = []
+        if let data = defaults.data(forKey: Self.legacyTombstonesV2Key) {
+            let rows = (try? JSONDecoder().decode([LegacyPendingDeletion].self, from: data)) ?? []
+            moved += rows.map { ($0.transaction, $0.deletedAt) }
+            defaults.removeObject(forKey: Self.legacyTombstonesV2Key)
+        }
+        if let data = defaults.data(forKey: Self.legacyTombstonesKey) {
+            let rows = (try? JSONDecoder().decode([TransactionSyncRow].self, from: data)) ?? []
+            moved += rows.compactMap { row in row.bankTransaction.map { ($0, row.deletedAt ?? Date()) } }
+            defaults.removeObject(forKey: Self.legacyTombstonesKey)
+        }
+        for (transaction, deletedAt) in moved {
+            transactions.addPendingDeletions([transaction], at: deletedAt)
+        }
     }
 
     // MARK: Visits
@@ -353,14 +361,16 @@ final class CloudSyncService {
     }
 
     private func pullVisits(userID: UUID, rest: SupabaseRESTClient, key: SyncKey, now: Date) async throws -> Bool {
-        let result = try await rest.fetchChanges(VisitSyncRow.self, from: Self.visitsTable, after: cursor(Self.visitsTable, userID))
-        try ensureCurrent(userID)
-        let readable = Self.readable(result.rows, open: { try $0.opening(with: key) }, isDeletion: { $0.deletedAt != nil })
-        let changed = try visits.applyRemote(readable, now: now)
-        if readable.contains(where: { $0.isLegacyPlaintext && $0.deletedAt == nil }) {
-            setLegacyVisits(true, userID: userID)
+        var changed = false
+        try await rest.forEachChangePage(VisitSyncRow.self, from: Self.visitsTable, after: cursor(Self.visitsTable, userID)) { rows, pageCursor in
+            try ensureCurrent(userID)
+            let readable = Self.readable(rows, open: { try $0.opening(with: key) }, isDeletion: { $0.deletedAt != nil })
+            changed = try visits.applyRemote(readable, now: now) || changed
+            if readable.contains(where: { $0.isLegacyPlaintext && $0.deletedAt == nil }) {
+                setLegacyVisits(true, userID: userID)
+            }
+            saveCursor(pageCursor, table: Self.visitsTable, userID: userID)
         }
-        saveCursor(result.cursor, table: Self.visitsTable, userID: userID)
         return changed
     }
 

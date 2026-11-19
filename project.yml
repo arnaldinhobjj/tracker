@@ -68,10 +68,10 @@ targets:
           UIApplicationSupportsMultipleScenes: false
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         ITSAppUsesNonExemptEncryption: false
-        UIBackgroundModes: [fetch]
+        UIBackgroundModes: [fetch, processing]
         NSLocationWhenInUseUsageDescription: DayLedger logs the places you visit (not continuous GPS) so it can match them with your spending and add them to your DayLedger calendar. Visits are stored on your iPhone and are only uploaded, end-to-end encrypted, if you turn on visit sync.
         NSLocationAlwaysAndWhenInUseUsageDescription: Allow "Always" so DayLedger can log visits automatically when you arrive at or leave a place, even when the app is closed. Visits are stored on your iPhone and are only uploaded, end-to-end encrypted, if you turn on visit sync.
-        BGTaskSchedulerPermittedIdentifiers: [app.dayledger.refresh]
+        BGTaskSchedulerPermittedIdentifiers: [app.dayledger.refresh, app.dayledger.processing]
         CFBundleURLTypes:
           - CFBundleURLName: app.dayledger
             CFBundleURLSchemes: [dayledger]
