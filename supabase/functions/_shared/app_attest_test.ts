@@ -240,10 +240,14 @@ Deno.test("report mode logs but never blocks; off mode does nothing", async () =
   assertEquals(outcome, "missing");
   assertEquals(logged.length, 1);
   const bad = request({ [ATTEST_KEY_HEADER]: "nope", [ATTEST_ASSERTION_HEADER]: "AAAA" });
+  const unknown = await checkRequestAttestation(bad, new Uint8Array(), report, registry, () => {});
+  assertEquals(unknown, "unknown_key");
+  // The app learns to register a new key even though the request went ahead.
   assertEquals(
-    await checkRequestAttestation(bad, new Uint8Array(), report, registry, () => {}),
-    "unknown_key",
+    withAttestStatus(new Response(), unknown).headers.get("x-dayledger-attest"),
+    "register",
   );
+  assertEquals(withAttestStatus(new Response(), "missing").headers.get("x-dayledger-attest"), null);
   assertEquals(
     await checkRequestAttestation(
       request(),
