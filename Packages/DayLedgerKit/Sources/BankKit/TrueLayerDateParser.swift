@@ -46,13 +46,14 @@ public enum TrueLayerDateParser {
         isoPlain.string(from: date)
     }
 
-    private static let isoWithFraction: ISO8601DateFormatter = {
+    // Configured once and then only read; ISO8601DateFormatter is thread-safe for formatting and parsing.
+    nonisolated(unsafe) private static let isoWithFraction: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return formatter
     }()
 
-    private static let isoPlain: ISO8601DateFormatter = {
+    nonisolated(unsafe) private static let isoPlain: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime]
         return formatter

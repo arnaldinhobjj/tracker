@@ -8,6 +8,8 @@
 	  - other financial info: synced transactions (end-to-end encrypted; declared conservatively)
 	  - precise location: synced visits, only with visit sync on (end-to-end encrypted; declared
 	    conservatively)
+	  - coarse location: named places in the anonymised summary sent for AI suggestions (relayed
+	    to Anthropic, not stored by DayLedger; declared conservatively)
 	No tracking, no tracking domains, no third-party SDKs.
 	Required-reason APIs: UserDefaults, for the app's own preferences (CA92.1) and for preferences
 	shared with the widget through the App Group (1C8F.1).
@@ -59,6 +61,18 @@
 		<dict>
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypeOtherFinancialInfo</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeCoarseLocation</string>
 			<key>NSPrivacyCollectedDataTypeLinked</key>
 			<true/>
 			<key>NSPrivacyCollectedDataTypeTracking</key>

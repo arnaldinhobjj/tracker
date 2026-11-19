@@ -26,9 +26,11 @@ final class AppEnvironment {
     let settings: AppSettings
     let visitRepository: VisitRepository
     let googleAuth: GoogleAuthService
+    /// Apple Calendar (EventKit); its permission is requested from Settings.
+    let appleCalendar: EventKitCalendarDestination
     let calendarSync: CalendarSyncService
     let locationLogging: LocationLoggingService
-    /// Providers the user can choose from. Anthropic first; add others behind `AIProvider`.
+    /// AI suggestion providers (DayLedger Pro, through the backend).
     let aiProviders: [AIProvider]
     /// True when launched by UI tests: in-memory store, mock bank, no Keychain.
     let isUITesting: Bool
@@ -74,9 +76,13 @@ final class AppEnvironment {
         settings = AppSettings(defaults: defaults)
         visitRepository = VisitRepository(container: modelContainer)
         googleAuth = GoogleAuthService(configuration: GoogleOAuthConfiguration(clientID: configuration.googleClientID), store: secureStore)
+        // UI tests and the developer account never touch the real calendars.
+        appleCalendar = EventKitCalendarDestination(
+            store: isUITesting || developerUser != nil ? InMemoryEventStore() as EventStoring : SystemEventStore()
+        )
         calendarSync = CalendarSyncService(
-            auth: googleAuth,
-            client: GoogleCalendarClient(tokens: googleAuth),
+            google: GoogleCalendarDestination(auth: googleAuth, client: GoogleCalendarClient(tokens: googleAuth)),
+            apple: appleCalendar,
             visits: visitRepository,
             transactions: transactionRepository,
             settings: settings,
@@ -112,11 +118,16 @@ final class AppEnvironment {
         cloudSync = CloudSyncService(rest: rest, keys: SyncKeyManager(store: syncKeyStore), transactions: transactionRepository,
                                      visits: visitRepository, settings: settings, defaults: defaults)
 
+        // DayLedger Pro's suggestions run on the backend with DayLedger's own key.
         aiProviders = [
-            AnthropicProvider(apiKey: { [secureStore] in
-                try secureStore.string(for: SecureStoreKey.aiAPIKey(provider: "anthropic"))
+            BackendAIProvider(send: { [rest] body in
+                guard let rest else { throw AIError.notEntitled }
+                return try await rest.invokeFunction("ai-suggest", body: body, timeout: BackendAIProvider.requestTimeout)
             }),
         ]
+        // Earlier versions asked users for their own Anthropic API key. It's no longer used:
+        // remove it from the Keychain.
+        try? secureStore.remove(SecureStoreKey.aiAPIKey(provider: "anthropic"))
 
         coordinator = SyncCoordinator(perform: { [transactionSync, locationLogging, widgetPublisher, calendarSync, subscriptions, cloudSync, account] step in
             switch step {

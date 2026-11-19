@@ -247,10 +247,16 @@ final class CloudSyncService {
     private func pullTransactions(userID: UUID, rest: SupabaseRESTClient, key: SyncKey, now: Date) async throws -> Bool {
         var changed = false
         // Each page is applied and its cursor saved before the next is fetched, so an interrupted
-        // first sync (a year of data) resumes where it stopped instead of starting again.
-        try await rest.forEachChangePage(TransactionSyncRow.self, from: Self.transactionsTable,
-                                         after: cursor(Self.transactionsTable, userID)) { rows, pageCursor in
+        // first sync (a year of data) resumes where it stopped instead of starting again. (The loop
+        // stays on the main actor: no closure is handed to the network client.)
+        var position = cursor(Self.transactionsTable, userID)
+        var more = true
+        while more {
+            let rows = try await rest.fetchPage(TransactionSyncRow.self, from: Self.transactionsTable, after: position)
             try ensureCurrent(userID)
+            let step = SupabaseRESTClient.advance(position, after: rows)
+            position = step.cursor
+            more = step.hasMore
             let readable = Self.readable(rows, open: { try $0.opening(with: key) }, isDeletion: { $0.deletedAt != nil })
             // Plaintext tombstones from older versions: queue an encrypted tombstone, which
             // overwrites (or, without a subscription, hard-deletes) the plaintext on the server.
@@ -258,7 +264,7 @@ final class CloudSyncService {
             let pending = Set(pendingTombstones().map(\.transaction.id))
             changed = try transactions.applyRemote(readable, pendingDeletionIDs: pending, now: now) || changed
             recordDeleted(legacyDeleted)
-            saveCursor(pageCursor, table: Self.transactionsTable, userID: userID)
+            saveCursor(position, table: Self.transactionsTable, userID: userID)
         }
         return changed
     }
@@ -362,14 +368,20 @@ final class CloudSyncService {
 
     private func pullVisits(userID: UUID, rest: SupabaseRESTClient, key: SyncKey, now: Date) async throws -> Bool {
         var changed = false
-        try await rest.forEachChangePage(VisitSyncRow.self, from: Self.visitsTable, after: cursor(Self.visitsTable, userID)) { rows, pageCursor in
+        var position = cursor(Self.visitsTable, userID)
+        var more = true
+        while more {
+            let rows = try await rest.fetchPage(VisitSyncRow.self, from: Self.visitsTable, after: position)
             try ensureCurrent(userID)
+            let step = SupabaseRESTClient.advance(position, after: rows)
+            position = step.cursor
+            more = step.hasMore
             let readable = Self.readable(rows, open: { try $0.opening(with: key) }, isDeletion: { $0.deletedAt != nil })
             changed = try visits.applyRemote(readable, now: now) || changed
             if readable.contains(where: { $0.isLegacyPlaintext && $0.deletedAt == nil }) {
                 setLegacyVisits(true, userID: userID)
             }
-            saveCursor(pageCursor, table: Self.visitsTable, userID: userID)
+            saveCursor(position, table: Self.visitsTable, userID: userID)
         }
         return changed
     }

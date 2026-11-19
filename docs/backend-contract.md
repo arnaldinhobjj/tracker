@@ -126,6 +126,17 @@ Client: **select own row only**. All writes by Edge Functions with the service r
 Audit + idempotency log of every verified notification (`notification_type`, `subtype`,
 `original_transaction_id`, `signed_date`, `received_at`, `payload jsonb`). No client access.
 
+### `ai_usage` — pk `(user_id, day)`
+| column | type | notes |
+|---|---|---|
+| day | date | UTC day |
+| requests | integer | AI suggestion requests that day |
+
+Service role only (RLS on, no policies, no client grants). Erased with the account (cascade).
+`public.consume_ai_quota(p_user_id uuid, p_limit int) returns boolean` atomically counts one
+request and returns true, or returns false (counting nothing) when the limit is reached. Execute
+granted to `service_role` only.
+
 ### `public.has_active_entitlement() returns boolean`
 `security definer`, stable, `search_path = ''`. True when the caller's `subscriptions` row
 has status in (`trial`,`active`,`grace_period`) and `expires_at > now()`. Used by the insert/
@@ -184,9 +195,26 @@ Request: `{"grant_type":"authorization_code","code":"..."}` or
 - 400 `invalid_request` / `unsupported_grant_type` for a bad body; 502 `upstream_unavailable`
   when TrueLayer can't be reached or fails.
 
+### `POST ai-suggest` (requires user JWT; DayLedger Pro)
+Request: `{"summary": <RoutineSummary>}` (the anonymised summary the app shows in "Preview what
+would be sent"; ≤ 32 KiB). The function keeps only the summary's known fields, with bounded sizes,
+so it can't be used as a general prompt proxy; builds the prompt; and calls Anthropic with
+`ANTHROPIC_API_KEY`. Nothing is stored except the per-day count.
+
+- 200: `{"text": "<the model's JSON: {\"proposals\":[…]}>"}`. The app validates every proposal.
+- 400 `invalid_summary`, 413 `summary_too_large`
+- 403 `not_entitled` (no active subscription)
+- 429 `daily_limit` (`AI_DAILY_LIMIT` requests per user per UTC day; the request is counted
+  before calling Anthropic)
+- 422 `refused` (the model declined), 502 `truncated` / `provider_invalid` / `provider_error`,
+  503 `provider_busy` (Anthropic rate-limited, overloaded or unreachable; Anthropic's own 401/403
+  never reach the app as such)
+
 ### Function secrets
 `APPLE_BUNDLE_ID`, `APPLE_ISSUER_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY` (App Store Connect
 API key, .p8 contents), `APPLE_APP_APPLE_ID` (numeric, production only).
+`ANTHROPIC_API_KEY` (required by `ai-suggest`), `ANTHROPIC_MODEL` (default `claude-opus-5-5`),
+`AI_DAILY_LIMIT` (default 20).
 `TRUELAYER_CLIENT_ID`, `TRUELAYER_CLIENT_SECRET`, `TRUELAYER_ENVIRONMENT` (`sandbox` or `live`,
 default `sandbox`), `TRUELAYER_REDIRECT_URI` (default `dayledger://truelayer-callback`). The
 client ID must match the app's `TRUELAYER_CLIENT_ID`. Supabase provides `SUPABASE_URL`,

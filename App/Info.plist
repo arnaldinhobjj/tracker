@@ -56,6 +56,8 @@
 	<string>$(TRUELAYER_ENVIRONMENT)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>DayLedger writes your visits, and the suggestions you approve, to its own DayLedger calendar and keeps those events up to date. From your other calendars it reads only when you are busy, never event titles or details.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Allow "Always" so DayLedger can log visits automatically when you arrive at or leave a place, even when the app is closed. Visits are stored on your iPhone and are only uploaded, end-to-end encrypted, if you turn on visit sync.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>

@@ -90,12 +90,12 @@ struct UserFacingError: Equatable, Identifiable {
 
     static func ai(_ error: AIError) -> UserFacingError {
         switch error {
-        case .missingAPIKey:
-            return UserFacingError(title: "No API key", message: "Add your API key in Settings → AI assistant.")
-        case .invalidAPIKey:
-            return UserFacingError(title: "API key rejected", message: "The provider didn't accept your API key. Check it in Settings → AI assistant.")
+        case .notEntitled:
+            return UserFacingError(title: "Part of DayLedger Pro", message: "AI suggestions need DayLedger Pro and an internet connection.")
+        case .dailyLimitReached(let message):
+            return UserFacingError(title: "Daily limit reached", message: message)
         case .rateLimited:
-            return UserFacingError(title: "Rate limited", message: "Your API key has hit its rate limit. Try again in a minute.", action: .retry)
+            return UserFacingError(title: "Rate limited", message: "Too many requests. Try again in a minute.", action: .retry)
         case .overloaded:
             return UserFacingError(title: "AI service busy", message: "The provider is overloaded. Try again shortly.", action: .retry)
         case .refused:
@@ -133,6 +133,10 @@ struct UserFacingError: Equatable, Identifiable {
                                    message: "Sign in again and allow DayLedger to manage its own calendar.", action: .signInGoogle)
         case .calendarNotFound:
             return UserFacingError(title: "Calendar not found", message: "The DayLedger calendar will be recreated on the next sync.", action: .retry)
+        case .calendarAccessDenied:
+            return UserFacingError(title: "Calendar access needed",
+                                   message: "Allow DayLedger full access to your calendars in Settings, so it can keep its own DayLedger calendar up to date.",
+                                   action: .openSettings)
         case .rateLimited:
             return UserFacingError(title: "Google is busy", message: "Too many requests. DayLedger will try again later.", action: .retry)
         case .network(let error):

@@ -150,16 +150,23 @@ public final class SupabaseRESTClient: @unchecked Sendable {
                                                 hasIDColumn: Bool = true, pageSize: Int = SupabaseRESTClient.pageSize,
                                                 _ body: ([Row], SyncCursor?) async throws -> Void) async throws {
         var position = cursor
-        while true {
+        var more = true
+        while more {
             let page = try await fetchPage(type, from: table, after: position, hasIDColumn: hasIDColumn, limit: pageSize)
-            if let last = page.last, let updatedAt = last.updatedAt {
-                position = SyncCursor(updatedAt: updatedAt, id: hasIDColumn ? last.cursorID : nil)
-            }
+            (position, more) = Self.advance(position, after: page, hasIDColumn: hasIDColumn, pageSize: pageSize)
             try await body(page, position)
-            if page.count < pageSize { break }
-            // A full page without a usable cursor would loop forever.
-            if page.last?.updatedAt == nil { break }
         }
+    }
+
+    /// The cursor after `page`, and whether another page may follow (a short page is the last; so is
+    /// a full page without a usable cursor, which would otherwise loop forever).
+    public static func advance<Row: SyncRow>(_ cursor: SyncCursor?, after page: [Row], hasIDColumn: Bool = true,
+                                             pageSize: Int = SupabaseRESTClient.pageSize) -> (cursor: SyncCursor?, hasMore: Bool) {
+        guard let last = page.last, let updatedAt = last.updatedAt else {
+            return (cursor, false)
+        }
+        let next = SyncCursor(updatedAt: updatedAt, id: hasIDColumn ? last.cursorID : nil)
+        return (next, page.count >= pageSize)
     }
 
     /// `POST /rest/v1/rpc/<name>`.
@@ -192,6 +199,12 @@ public final class SupabaseRESTClient: @unchecked Sendable {
         return try decodeEntitlement(data)
     }
 
+    /// `POST /functions/v1/<name>` with a JSON body, as the signed-in user. Returns the response body.
+    /// `timeout` overrides URLSession's 60-second default for functions that wait on a slow upstream.
+    public func invokeFunction(_ name: String, body: Data, timeout: TimeInterval? = nil) async throws -> Data {
+        try await function(name, method: "POST", body: body, timeout: timeout)
+    }
+
     /// Deletes the account and, by cascade, every synced row.
     public func deleteAccount() async throws {
         _ = try await function("delete-account", method: "POST", body: Data("{}".utf8))
@@ -199,9 +212,9 @@ public final class SupabaseRESTClient: @unchecked Sendable {
 
     // MARK: Plumbing
 
-    private func function(_ name: String, method: String, body: Data?) async throws -> Data {
+    private func function(_ name: String, method: String, body: Data?, timeout: TimeInterval? = nil) async throws -> Data {
         let url = try configuration.endpoint("functions/v1/\(name)")
-        return try await authorised(url: url, method: method, body: body)
+        return try await authorised(url: url, method: method, body: body, timeout: timeout)
     }
 
     private func decodeEntitlement(_ data: Data) throws -> Entitlement {
@@ -212,19 +225,22 @@ public final class SupabaseRESTClient: @unchecked Sendable {
         }
     }
 
-    private func authorised(url: URL, method: String, body: Data?, headers: [String: String] = [:]) async throws -> Data {
+    private func authorised(url: URL, method: String, body: Data?, headers: [String: String] = [:],
+                            timeout: TimeInterval? = nil) async throws -> Data {
         let token = try await tokens.validAccessToken()
         do {
-            return try await http.sendValidated(makeRequest(url: url, method: method, body: body, headers: headers, token: token))
+            return try await http.sendValidated(makeRequest(url: url, method: method, body: body, headers: headers, token: token, timeout: timeout))
         } catch let error as NetworkError where error.statusCode == 401 {
             let fresh = try await tokens.refreshedAccessToken(after: token)
-            return try await http.sendValidated(makeRequest(url: url, method: method, body: body, headers: headers, token: fresh))
+            return try await http.sendValidated(makeRequest(url: url, method: method, body: body, headers: headers, token: fresh, timeout: timeout))
         }
     }
 
-    private func makeRequest(url: URL, method: String, body: Data?, headers: [String: String], token: String) -> URLRequest {
+    private func makeRequest(url: URL, method: String, body: Data?, headers: [String: String], token: String,
+                             timeout: TimeInterval? = nil) -> URLRequest {
         var request = URLRequest(url: url)
         request.httpMethod = method
+        if let timeout { request.timeoutInterval = timeout }
         request.setValue(configuration.anonKey, forHTTPHeaderField: "apikey")
         request.setBearer(token)
         request.setValue("application/json", forHTTPHeaderField: "Accept")

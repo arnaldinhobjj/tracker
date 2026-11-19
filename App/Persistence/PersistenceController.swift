@@ -3,7 +3,8 @@ import SwiftData
 
 enum PersistenceController {
     /// The current schema. Add new models to a new schema version (SchemaVersions.swift).
-    static let schema = Schema(versionedSchema: SchemaV2.self)
+    // Built once and never mutated.
+    nonisolated(unsafe) static let schema = Schema(versionedSchema: SchemaV2.self)
 
     /// What happened when the store was opened.
     enum OpenResult: Equatable {

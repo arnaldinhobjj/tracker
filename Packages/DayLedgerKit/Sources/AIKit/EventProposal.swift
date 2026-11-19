@@ -37,8 +37,10 @@ public struct ProposalParseResult: Equatable, Sendable {
 }
 
 public enum AIError: Error, Equatable, Sendable {
-    case missingAPIKey
-    case invalidAPIKey
+    /// AI suggestions need DayLedger Pro (or the build has no backend).
+    case notEntitled
+    /// The per-day request limit was reached; the message says how many.
+    case dailyLimitReached(String)
     case rateLimited
     case overloaded
     /// The model declined the request (stop_reason "refusal").

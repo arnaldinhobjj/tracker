@@ -151,7 +151,7 @@ struct AccountSettingsSection: View {
         isWorking = true
         Task {
             // Deletes the cloud account first (stops if that fails), wipes this device, signs out.
-            let report = await DataEraser(environment: environment).eraseAll(deleteGoogleCalendar: false)
+            let report = await DataEraser(environment: environment).eraseAll(deleteCalendars: false)
             isWorking = false
             if let reason = report.abortedReason {
                 error = UserFacingError(title: "Account not deleted", message: reason, action: .retry)
