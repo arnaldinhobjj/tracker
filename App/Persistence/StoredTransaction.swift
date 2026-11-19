@@ -2,7 +2,8 @@ import Foundation
 import SharedModels
 import SwiftData
 
-/// SwiftData cache of bank transactions, so the app works offline.
+/// SwiftData cache of bank transactions, so the app works offline. Changing stored properties
+/// needs a new schema version (see SchemaVersions.swift).
 @Model
 final class StoredTransaction {
     @Attribute(.unique) var id: String
@@ -21,6 +22,9 @@ final class StoredTransaction {
     /// When this row was last known to match the cloud copy (pushed or pulled). Nil: never synced.
     /// Optional so existing stores migrate without a default.
     var cloudSyncedAt: Date?
+    /// True while this row has local changes the cloud doesn't have yet. Kept alongside the dates
+    /// so the rows to upload can be fetched with a predicate (SchemaV2).
+    var needsCloudPush: Bool = true
 
     init(_ transaction: BankTransaction, updatedAt: Date = Date()) {
         id = transaction.id
@@ -50,6 +54,7 @@ final class StoredTransaction {
         hasTime = transaction.hasTime
         isPending = transaction.isPending
         updatedAt = date
+        needsCloudPush = true
     }
 
     var domain: BankTransaction {

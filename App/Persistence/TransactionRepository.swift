@@ -73,8 +73,10 @@ final class TransactionRepository {
         try context.save()
     }
 
+    /// Every cached transaction and every deletion still waiting to reach the cloud.
     func deleteAll() throws {
         try context.delete(model: StoredTransaction.self)
+        try context.delete(model: StoredPendingDeletion.self)
         try context.save()
     }
 
@@ -86,7 +88,7 @@ final class TransactionRepository {
 
     /// Transactions changed since they were last pushed or pulled.
     func cloudDirty() -> [StoredTransaction] {
-        allStored().filter { CloudMerge.isDirty(updatedAt: $0.updatedAt, syncedAt: $0.cloudSyncedAt) }
+        (try? context.fetch(FetchDescriptor<StoredTransaction>(predicate: #Predicate { $0.needsCloudPush == true }))) ?? []
     }
 
     func existingIDs(in ids: [String]) -> Set<String> {
@@ -95,9 +97,14 @@ final class TransactionRepository {
         return Set(found.map(\.id))
     }
 
+    /// The rows were pushed as they were at `date`. A row edited after that (during the upload)
+    /// stays marked for the next push.
     func markCloudSynced(ids: Set<String>, at date: Date) {
-        for item in allStored() where ids.contains(item.id) {
+        let list = Array(ids)
+        let items = (try? context.fetch(FetchDescriptor<StoredTransaction>(predicate: #Predicate { list.contains($0.id) }))) ?? []
+        for item in items {
             item.cloudSyncedAt = date
+            item.needsCloudPush = CloudMerge.isDirty(updatedAt: item.updatedAt, syncedAt: date)
         }
         try? context.save()
     }
@@ -135,9 +142,11 @@ final class TransactionRepository {
             if let local {
                 local.update(from: transaction, at: now)
                 local.cloudSyncedAt = syncedAt
+                local.needsCloudPush = syncedAt == nil
             } else {
                 let stored = StoredTransaction(transaction, updatedAt: now)
                 stored.cloudSyncedAt = syncedAt
+                stored.needsCloudPush = syncedAt == nil
                 context.insert(stored)
                 byID[row.id] = stored
             }
@@ -149,7 +158,41 @@ final class TransactionRepository {
 
     /// Marks every transaction as not synced (another account signed in on this device).
     func resetCloudSyncState() {
-        for item in allStored() { item.cloudSyncedAt = nil }
+        for item in allStored() {
+            item.cloudSyncedAt = nil
+            item.needsCloudPush = true
+        }
+        try? context.save()
+    }
+
+    // MARK: Pending deletions (not yet sent to the cloud)
+
+    /// Records deletions; a transaction deleted again replaces its earlier entry.
+    func addPendingDeletions(_ transactions: [BankTransaction], at date: Date = Date()) {
+        guard !transactions.isEmpty else { return }
+        let ids = transactions.map(\.id)
+        let existing = (try? context.fetch(FetchDescriptor<StoredPendingDeletion>(predicate: #Predicate { ids.contains($0.id) }))) ?? []
+        for item in existing { context.delete(item) }
+        for transaction in transactions {
+            context.insert(StoredPendingDeletion(transaction: transaction, deletedAt: date))
+        }
+        try? context.save()
+    }
+
+    /// Oldest first.
+    func pendingDeletions() -> [(transaction: BankTransaction, deletedAt: Date)] {
+        let descriptor = FetchDescriptor<StoredPendingDeletion>(sortBy: [SortDescriptor(\.deletedAt)])
+        return ((try? context.fetch(descriptor)) ?? []).compactMap { item in
+            item.transaction.map { (transaction: $0, deletedAt: item.deletedAt) }
+        }
+    }
+
+    func removePendingDeletions(ids: Set<String>) {
+        guard !ids.isEmpty else { return }
+        let list = Array(ids)
+        for item in (try? context.fetch(FetchDescriptor<StoredPendingDeletion>(predicate: #Predicate { list.contains($0.id) }))) ?? [] {
+            context.delete(item)
+        }
         try? context.save()
     }
 }

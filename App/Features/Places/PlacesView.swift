@@ -52,8 +52,7 @@ struct PlacesView: View {
             }
             .navigationTitle("Places")
             .refreshable {
-                await environment.locationLogging.resolvePending()
-                await environment.calendarSync.sync()
+                await environment.coordinator.request([.places, .calendar])
                 reload()
             }
             .onAppear(perform: reload)

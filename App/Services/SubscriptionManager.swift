@@ -273,7 +273,7 @@ final class SubscriptionManager {
                 // Xcode's local StoreKit configuration signs transactions locally, which the
                 // server can't verify. Debug builds trust StoreKit's own check so the paywall
                 // works in the Simulator; Release builds never take this path.
-                print("[SubscriptionManager] DEBUG: server rejected a locally signed StoreKit transaction (invalid_signature); using the local entitlement.")
+                Log.subscriptions.debug("Server rejected a locally signed StoreKit transaction (invalid_signature); using the local entitlement (Debug only).")
                 let local = Self.entitlement(from: transaction)
                 if local.isEntitled(), ownedByThisAccount {
                     apply(local, for: userID, cache: false)

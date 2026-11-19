@@ -30,7 +30,7 @@ final class VisitRepository {
         }) {
             if let departure = event.departure {
                 existing.departure = departure
-                existing.updatedAt = Date()
+                existing.touch()
             }
             try context.save()
             return existing
@@ -44,7 +44,7 @@ final class VisitRepository {
 
     func applyPlace(_ place: ResolvedPlace?, to visit: StoredVisit) throws {
         visit.isResolved = true
-        visit.updatedAt = Date()
+        visit.touch()
         if let place {
             visit.placeName = place.name
             visit.placeCategory = place.category
@@ -70,7 +70,7 @@ final class VisitRepository {
         visit.calendarEventID = eventID
         visit.calendarContentHash = hash
         visit.calendarSyncedAt = date
-        visit.updatedAt = Date()
+        // Calendar bookkeeping is local to this device and never synced: not a cloud change.
         try? context.save()
     }
 
@@ -80,7 +80,6 @@ final class VisitRepository {
             visit.calendarEventID = nil
             visit.calendarContentHash = nil
             visit.calendarSyncedAt = nil
-            visit.updatedAt = Date()
         }
         try? context.save()
     }
@@ -98,12 +97,15 @@ final class VisitRepository {
 
     /// Visits changed since they were last pushed or pulled.
     func cloudDirty() -> [StoredVisit] {
-        allVisits().filter { CloudMerge.isDirty(updatedAt: $0.updatedAt, syncedAt: $0.cloudSyncedAt) }
+        (try? context.fetch(FetchDescriptor<StoredVisit>(predicate: #Predicate { $0.needsCloudPush == true }))) ?? []
     }
 
+    /// The visits were pushed as they were at `date`; one edited during the upload stays marked.
     func markCloudSynced(ids: Set<String>, at date: Date) {
-        for visit in allVisits() where ids.contains(visit.id) {
+        let list = Array(ids)
+        for visit in (try? context.fetch(FetchDescriptor<StoredVisit>(predicate: #Predicate { list.contains($0.id) }))) ?? [] {
             visit.cloudSyncedAt = date
+            visit.needsCloudPush = CloudMerge.isDirty(updatedAt: visit.updatedAt, syncedAt: date)
         }
         try? context.save()
     }
@@ -151,6 +153,7 @@ final class VisitRepository {
             // Plaintext rows from older versions stay "not synced": with visit sync on they are
             // uploaded again encrypted, replacing the plaintext copy.
             visit.cloudSyncedAt = row.isLegacyPlaintext ? nil : now
+            visit.needsCloudPush = row.isLegacyPlaintext
             changed = true
         }
         try context.save()
@@ -159,7 +162,10 @@ final class VisitRepository {
 
     /// Marks every visit as not synced (another account signed in on this device).
     func resetCloudSyncState() {
-        for visit in allVisits() { visit.cloudSyncedAt = nil }
+        for visit in allVisits() {
+            visit.cloudSyncedAt = nil
+            visit.needsCloudPush = true
+        }
         try? context.save()
     }
 }

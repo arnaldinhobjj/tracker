@@ -37,6 +37,8 @@ final class AppEnvironment {
     let account: AccountController
     let subscriptions: SubscriptionManager
     let cloudSync: CloudSyncService
+    /// Runs every sync in a fixed order and merges overlapping requests.
+    let coordinator: SyncCoordinator
     /// PostgREST / Edge Functions for the signed-in user. Nil without a backend (not configured,
     /// UI tests, developer account).
     let cloudREST: SupabaseRESTClient?
@@ -116,17 +118,26 @@ final class AppEnvironment {
             }),
         ]
 
-        // New transactions can complete a visit's spending, so re-sync the calendar after each bank sync.
-        transactionSync.onSynced = { [widgetPublisher, calendarSync, cloudSync] in
-            widgetPublisher.publish()
-            Task {
-                await calendarSync.sync()
-                await cloudSync.sync()
+        coordinator = SyncCoordinator(perform: { [transactionSync, locationLogging, widgetPublisher, calendarSync, subscriptions, cloudSync, account] step in
+            switch step {
+            case .bank: _ = await transactionSync.sync()
+            case .places: await locationLogging.resolvePending()
+            case .widget: widgetPublisher.publish()
+            case .calendar: await calendarSync.sync()
+            case .entitlement: if account.isSignedIn { await subscriptions.refreshEntitlement() }
+            case .cloud: await cloudSync.sync()
+            default: break
             }
+        })
+
+        // New transactions can complete a visit's spending: after any bank sync (pull-to-refresh,
+        // connecting a bank, or the coordinator's own bank step) update the widget, calendar and
+        // cloud. Inside a coordinator pass these steps are still to come, so nothing runs twice.
+        transactionSync.onSynced = { [coordinator] in
+            coordinator.schedule([.widget, .calendar, .cloud])
         }
-        locationLogging.onVisitsChanged = { [calendarSync, cloudSync] in
-            await calendarSync.sync()
-            await cloudSync.sync()
+        locationLogging.onVisitsChanged = { [coordinator] in
+            await coordinator.request([.calendar, .cloud])
         }
         wireAccount()
         // Must happen at launch: when iOS relaunches the app for a visit, the location manager
@@ -148,8 +159,9 @@ final class AppEnvironment {
         cloudSync.onSessionExpired = { account.sessionExpired() }
         cloudSync.onDataChanged = { widgetPublisher.publish() }
         subscriptions.onSessionExpired = { account.sessionExpired() }
+        let coordinator = self.coordinator
         subscriptions.onEntitled = {
-            Task { await cloudSync.sync() }
+            coordinator.schedule(.cloud)
         }
         account.onSignedIn = { [weak self] user in
             cloudSync.cancelInFlight()
@@ -160,7 +172,7 @@ final class AppEnvironment {
                     await DataEraser(environment: self).wipeIfDifferentAccount(newUserID: user.id)
                 }
                 subscriptions.setUser(user.id)
-                await cloudSync.sync()
+                await coordinator.request(.cloud)
             }
         }
         account.onSignedOut = {
@@ -172,14 +184,24 @@ final class AppEnvironment {
         }
     }
 
-    /// Entry point for BGAppRefreshTask: fetch, store, update the widget, schedule the next one.
+    /// The app became active: retry place lookups, update the widget (also covers midnight while
+    /// the app was closed), the calendar, the subscription and the cloud copy. The bank itself is
+    /// refreshed by the Today screen when its data is stale, which also feeds the coordinator.
+    func appDidBecomeActive() async {
+        await coordinator.request([.places, .widget, .calendar, .entitlement, .cloud])
+    }
+
+    /// Entry point for BGAppRefreshTask: everything, then schedule the next one.
     func performBackgroundRefresh() async {
         BackgroundRefresh.schedule()
-        _ = await transactionSync.sync()
-        widgetPublisher.publish()
-        await locationLogging.resolvePending()
-        await calendarSync.sync()
-        await cloudSync.sync()
+        await coordinator.request(.all)
+    }
+
+    /// Entry point for the BGProcessingTask (longer, needs network): the full pipeline, so a first
+    /// cloud sync or a calendar backfill can finish without the app open.
+    func performBackgroundProcessing() async {
+        BackgroundRefresh.scheduleProcessing()
+        await coordinator.request(.all)
     }
 
     /// Stops long-running listeners before this environment is replaced (developer sign-in/out).
@@ -239,6 +261,12 @@ final class AppEnvironment {
         #endif
 
         let defaults = UserDefaults(suiteName: configuration.appGroupID.isEmpty ? nil : configuration.appGroupID) ?? .standard
+        let store = PersistenceController.open(appGroupID: configuration.appGroupID, inMemory: false)
+        if store.result != .opened {
+            // The old store was unreadable (kept aside, not deleted): fetch the bank's recent
+            // history and the whole cloud copy again.
+            PersistenceController.resetSyncBookkeeping(defaults)
+        }
         let secureStore = KeychainStore()
         let trueLayer = TrueLayerConfiguration(
             clientID: configuration.trueLayerClientID,
@@ -252,7 +280,7 @@ final class AppEnvironment {
         )
         return AppEnvironment(
             configuration: configuration,
-            modelContainer: PersistenceController.makeContainer(appGroupID: configuration.appGroupID, inMemory: false),
+            modelContainer: store.container,
             defaults: defaults,
             secureStore: secureStore,
             bankService: bank,

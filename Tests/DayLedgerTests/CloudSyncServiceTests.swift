@@ -295,17 +295,40 @@ final class CloudSyncServiceTests: XCTestCase {
         }
     }
 
-    func testPendingDeletionsFromBeforeEncryptionAreKept() throws {
+    func testPendingDeletionsQueuedByEarlierVersionsMoveIntoTheStore() throws {
         let h = makeHarness(canWrite: true)
-        // The format an older version stored: plaintext sync rows.
+        // Before encryption: plaintext sync rows in UserDefaults.
         let legacy = "[\(legacyRowJSON("a:pending:old", updatedAt: far(0), deletedAt: far(0)))]"
         h.defaults.set(Data(legacy.utf8), forKey: "cloud.pendingDeletes.transactions")
+        // Sprint 1: `{transaction, deletedAt}` in UserDefaults.
+        struct Sprint1Entry: Encodable { var transaction: BankTransaction; var deletedAt: Date }
+        let sprint1 = try JSONEncoder().encode([Sprint1Entry(transaction: transaction("a:pending:s1"), deletedAt: Date())])
+        h.defaults.set(sprint1, forKey: "cloud.pendingDeletes.v2")
 
         let pending = h.service.pendingTombstones()
 
-        XCTAssertEqual(pending.map(\.transaction.id), ["a:pending:old"])
-        XCTAssertNil(h.defaults.data(forKey: "cloud.pendingDeletes.transactions"), "Converted once")
-        XCTAssertEqual(h.service.pendingTombstones().map(\.transaction.id), ["a:pending:old"])
+        XCTAssertEqual(Set(pending.map(\.transaction.id)), ["a:pending:old", "a:pending:s1"])
+        XCTAssertNil(h.defaults.data(forKey: "cloud.pendingDeletes.transactions"), "Moved once")
+        XCTAssertNil(h.defaults.data(forKey: "cloud.pendingDeletes.v2"), "Moved once")
+        XCTAssertEqual(Set(h.transactions.pendingDeletions().map(\.transaction.id)), ["a:pending:old", "a:pending:s1"], "Now in SwiftData")
+        XCTAssertEqual(h.service.pendingTombstones().count, 2)
+    }
+
+    func testAnInterruptedPullResumesAfterTheLastAppliedPage() async throws {
+        let h = makeHarness(canWrite: false)
+        let updatedAt = far(-60)
+        let page = (0..<SupabaseRESTClient.pageSize).map { legacyRowJSON(String(format: "a:%03d", $0), updatedAt: updatedAt) }
+        h.http.on("/rest/v1/user_settings", body: "[]")
+        h.http.on("/rest/v1/sync_keys", body: #"[{"user_id":"\#(userID.uuidString.lowercased())","key_id":"\#(key.id)"}]"#)
+        h.http.on("/rest/v1/transactions", body: "[\(page.joined(separator: ","))]")
+        // The second page never arrives (connection lost).
+
+        await h.service.sync()
+
+        XCTAssertEqual(h.transactions.allStored().count, SupabaseRESTClient.pageSize, "The first page was applied")
+        let saved = try XCTUnwrap(h.defaults.data(forKey: "cloud.cursor.\(userID.uuidString).transactions"))
+        let cursor = try JSONDecoder().decode(SyncCursor.self, from: saved)
+        XCTAssertEqual(cursor.id, String(format: "a:%03d", SupabaseRESTClient.pageSize - 1), "Next time starts after it")
     }
 
     func testSignedOutDoesNothing() async {
