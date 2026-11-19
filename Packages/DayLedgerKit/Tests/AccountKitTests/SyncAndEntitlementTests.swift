@@ -368,8 +368,11 @@ final class SupabaseRESTClientTests: XCTestCase {
     func testSlowFunctionsCanWaitLongerThanTheDefaultTimeout() async throws {
         let http = StubHTTPClient()
         http.on("/functions/v1/ai-suggest", body: #"{"text":"[]"}"#)
-        _ = try await makeClient(http: http).invokeFunction("ai-suggest", body: Data("{}".utf8), timeout: 120)
+        _ = try await makeClient(http: http).invokeFunction("ai-suggest", body: Data("{}".utf8), timeout: 120,
+                                                            attester: FixedAttester())
         XCTAssertEqual(http.requests.last?.timeoutInterval, 120)
+        XCTAssertEqual(http.requests.last?.value(forHTTPHeaderField: AppAttestHeaders.key), "key")
+        XCTAssertNotNil(http.requests.last?.value(forHTTPHeaderField: "Authorization"), "Still sent as the user")
     }
 
     func testDeleteAllRemovesEveryRowOfTheUserInATable() async throws {
@@ -381,4 +384,12 @@ final class SupabaseRESTClientTests: XCTestCase {
         XCTAssertEqual(request.queryValue("user_id"), "eq.\(userID.uuidString.lowercased())")
         XCTAssertNil(request.queryValue("id"), "Every row, not a list of ids")
     }
+}
+
+private struct FixedAttester: RequestAttesting {
+    func headers(for body: Data) async -> [String: String] {
+        [AppAttestHeaders.key: "key", AppAttestHeaders.assertion: "sig"]
+    }
+
+    func reset() async {}
 }

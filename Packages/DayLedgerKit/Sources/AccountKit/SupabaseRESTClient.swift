@@ -201,8 +201,10 @@ public final class SupabaseRESTClient: @unchecked Sendable {
 
     /// `POST /functions/v1/<name>` with a JSON body, as the signed-in user. Returns the response body.
     /// `timeout` overrides URLSession's 60-second default for functions that wait on a slow upstream.
-    public func invokeFunction(_ name: String, body: Data, timeout: TimeInterval? = nil) async throws -> Data {
-        try await function(name, method: "POST", body: body, timeout: timeout)
+    /// `attester` adds App Attest headers for functions that check them.
+    public func invokeFunction(_ name: String, body: Data, timeout: TimeInterval? = nil,
+                               attester: RequestAttesting? = nil) async throws -> Data {
+        try await function(name, method: "POST", body: body, timeout: timeout, attester: attester)
     }
 
     /// Deletes the account and, by cascade, every synced row.
@@ -212,9 +214,11 @@ public final class SupabaseRESTClient: @unchecked Sendable {
 
     // MARK: Plumbing
 
-    private func function(_ name: String, method: String, body: Data?, timeout: TimeInterval? = nil) async throws -> Data {
+    private func function(_ name: String, method: String, body: Data?, timeout: TimeInterval? = nil,
+                          attester: RequestAttesting? = nil) async throws -> Data {
         let url = try configuration.endpoint("functions/v1/\(name)")
-        return try await authorised(url: url, method: method, body: body, timeout: timeout)
+        let client = attester.map { AttestingHTTPClient(base: http, attester: $0) } ?? http
+        return try await authorised(url: url, method: method, body: body, timeout: timeout, http: client)
     }
 
     private func decodeEntitlement(_ data: Data) throws -> Entitlement {
@@ -226,7 +230,8 @@ public final class SupabaseRESTClient: @unchecked Sendable {
     }
 
     private func authorised(url: URL, method: String, body: Data?, headers: [String: String] = [:],
-                            timeout: TimeInterval? = nil) async throws -> Data {
+                            timeout: TimeInterval? = nil, http: HTTPClient? = nil) async throws -> Data {
+        let http = http ?? self.http
         let token = try await tokens.validAccessToken()
         do {
             return try await http.sendValidated(makeRequest(url: url, method: method, body: body, headers: headers, token: token, timeout: timeout))

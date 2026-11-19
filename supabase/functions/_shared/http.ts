@@ -3,7 +3,8 @@
 
 export const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-dayledger-attest-key, x-dayledger-attest-assertion",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
@@ -31,16 +32,24 @@ export function errorResponse(status: number, code: string, message: string): Re
 
 /** Parses a JSON object body or throws a 400. */
 export async function readJsonObject(req: Request): Promise<Record<string, unknown>> {
+  return (await readJsonObjectWithRaw(req)).body;
+}
+
+/** Like `readJsonObject`, also returning the exact bytes (App Attest signs those). */
+export async function readJsonObjectWithRaw(
+  req: Request,
+): Promise<{ body: Record<string, unknown>; raw: Uint8Array }> {
+  const raw = new Uint8Array(await req.arrayBuffer());
   let body: unknown;
   try {
-    body = await req.json();
+    body = JSON.parse(new TextDecoder().decode(raw));
   } catch {
     throw new HttpError(400, "invalid_json", "Request body must be valid JSON.");
   }
   if (typeof body !== "object" || body === null || Array.isArray(body)) {
     throw new HttpError(400, "invalid_json", "Request body must be a JSON object.");
   }
-  return body as Record<string, unknown>;
+  return { body: body as Record<string, unknown>, raw };
 }
 
 /** Returns the raw bearer token from the Authorization header, or throws a 401. */

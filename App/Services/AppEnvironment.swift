@@ -4,6 +4,7 @@ import BankKit
 import CalendarKit
 import Foundation
 import LocationKit
+import Networking
 import Observation
 import SecureStore
 import SharedModels
@@ -56,7 +57,8 @@ final class AppEnvironment {
         isUITesting: Bool,
         syncKeyStore: SecureStoring = InMemorySecureStore(),
         auth injectedAuth: AuthServicing? = nil,
-        developerUser: AuthUser? = nil
+        developerUser: AuthUser? = nil,
+        attester: RequestAttesting? = nil
     ) {
         self.configuration = configuration
         self.modelContainer = modelContainer
@@ -120,9 +122,10 @@ final class AppEnvironment {
 
         // DayLedger Pro's suggestions run on the backend with DayLedger's own key.
         aiProviders = [
-            BackendAIProvider(send: { [rest] body in
+            BackendAIProvider(send: { [rest, attester] body in
                 guard let rest else { throw AIError.notEntitled }
-                return try await rest.invokeFunction("ai-suggest", body: body, timeout: BackendAIProvider.requestTimeout)
+                return try await rest.invokeFunction("ai-suggest", body: body, timeout: BackendAIProvider.requestTimeout,
+                                                     attester: attester)
             }),
         ]
         // Earlier versions asked users for their own Anthropic API key. It's no longer used:
@@ -224,7 +227,22 @@ final class AppEnvironment {
     /// TrueLayer tokens are exchanged by the `truelayer-token` Edge Function, which holds the
     /// client secret. Debug builds with a sandbox secret in `Config/Local.xcconfig` may talk to
     /// TrueLayer directly instead; Release builds can't (no secret, and no direct exchanger).
-    static func makeTokenExchanger(configuration: AppConfiguration, trueLayer: TrueLayerConfiguration) -> TrueLayerTokenExchanging {
+    /// App Attest for the functions that spend DayLedger's money or hold its secrets. Nil without
+    /// a backend. Devices that can't attest (the simulator) just send no assertion.
+    static func makeAttester(configuration: AppConfiguration, defaults: UserDefaults) -> RequestAttesting? {
+        let supabase = SupabaseConfiguration(urlString: configuration.supabaseURL, anonKey: configuration.supabaseAnonKey)
+        guard let endpoint = try? supabase.endpoint("functions/v1/app-attest") else { return nil }
+        let anonKey = supabase.anonKey
+        return AppAttestClient(
+            registrar: BackendAppAttestRegistrar(endpoint: endpoint, headers: {
+                ["apikey": anonKey, "Authorization": "Bearer \(anonKey)"]
+            }),
+            store: UserDefaultsAppAttestKeyStore(defaults: defaults)
+        )
+    }
+
+    static func makeTokenExchanger(configuration: AppConfiguration, trueLayer: TrueLayerConfiguration,
+                                   attester: RequestAttesting? = nil) -> TrueLayerTokenExchanging {
         #if DEBUG
         if !configuration.trueLayerClientSecret.isEmpty {
             return DirectTrueLayerTokenExchanger(configuration: trueLayer, clientSecret: configuration.trueLayerClientSecret)
@@ -238,7 +256,7 @@ final class AppEnvironment {
         let anonKey = supabase.anonKey
         return BackendTrueLayerTokenExchanger(endpoint: endpoint, headers: {
             ["apikey": anonKey, "Authorization": "Bearer \(anonKey)"]
-        })
+        }, http: attester.map { AttestingHTTPClient(attester: $0) } ?? URLSessionHTTPClient())
     }
 
     static func makeDefault(processInfo: ProcessInfo = .processInfo) -> AppEnvironment {
@@ -279,13 +297,14 @@ final class AppEnvironment {
             PersistenceController.resetSyncBookkeeping(defaults)
         }
         let secureStore = KeychainStore()
+        let attester = makeAttester(configuration: configuration, defaults: defaults)
         let trueLayer = TrueLayerConfiguration(
             clientID: configuration.trueLayerClientID,
             environment: TrueLayerEnvironment(rawValue: configuration.trueLayerEnvironment) ?? .sandbox
         )
         let bank = TrueLayerBankService(
             configuration: trueLayer,
-            exchanger: makeTokenExchanger(configuration: configuration, trueLayer: trueLayer),
+            exchanger: makeTokenExchanger(configuration: configuration, trueLayer: trueLayer, attester: attester),
             secureStore: secureStore,
             connectionStore: BankConnectionStore(defaults: defaults)
         )
@@ -296,7 +315,8 @@ final class AppEnvironment {
             secureStore: secureStore,
             bankService: bank,
             isUITesting: false,
-            syncKeyStore: KeychainStore(service: KeychainStore.syncKeyService, synchronizable: true)
+            syncKeyStore: KeychainStore(service: KeychainStore.syncKeyService, synchronizable: true),
+            attester: attester
         )
     }
 }
