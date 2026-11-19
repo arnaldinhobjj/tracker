@@ -67,6 +67,24 @@ final class AppAttestClientTests: XCTestCase {
         XCTAssertEqual(provider.generatedKeys, 1, "The key created before the failure is reused")
     }
 
+    func testAFailedUploadStartsAgainWithAFreshKey() async {
+        let provider = FakeAttestationProvider()
+        let registrar = FakeRegistrar()
+        registrar.failNextRegistration = true
+        let clock = TestClock()
+        let client = AppAttestClient(provider: provider, registrar: registrar, store: MemoryKeyStore(), now: { clock.now })
+
+        let failed = await client.headers(for: Data())
+        XCTAssertTrue(failed.isEmpty)
+        clock.now = clock.now.addingTimeInterval(AppAttestClient.retryDelay + 1)
+        let retried = await client.headers(for: Data())
+
+        // key-1 was attested but never registered: Apple won't attest it again, so a new key is used.
+        XCTAssertEqual(retried[AppAttestHeaders.key], "key-2")
+        XCTAssertEqual(provider.attestedKeys, ["key-1", "key-2"])
+        XCTAssertEqual(registrar.registrations.map(\.keyID), ["key-2"])
+    }
+
     func testResetRegistersANewKey() async {
         let provider = FakeAttestationProvider()
         let registrar = FakeRegistrar()
@@ -140,6 +158,7 @@ private final class FakeAttestationProvider: AttestationKeyProviding, @unchecked
     var invalidKeys: Set<String> = []
     private(set) var generatedKeys = 0
     private(set) var attestedHashes: [Data] = []
+    private(set) var attestedKeys: [String] = []
     private(set) var assertedHashes: [Data] = []
     private var assertions = 0
 
@@ -153,7 +172,10 @@ private final class FakeAttestationProvider: AttestationKeyProviding, @unchecked
     }
 
     func attestKey(_ keyID: String, clientDataHash: Data) async throws -> Data {
-        lock.withLock { attestedHashes.append(clientDataHash) }
+        lock.withLock {
+            attestedHashes.append(clientDataHash)
+            attestedKeys.append(keyID)
+        }
         return Data("attestation-\(keyID)".utf8)
     }
 
@@ -172,6 +194,7 @@ private final class FakeAttestationProvider: AttestationKeyProviding, @unchecked
 private final class FakeRegistrar: AppAttestRegistering, @unchecked Sendable {
     private let lock = NSLock()
     var failNext = false
+    var failNextRegistration = false
     private(set) var challengesIssued = 0
     private(set) var registrations: [(keyID: String, challenge: String)] = []
 
@@ -189,7 +212,13 @@ private final class FakeRegistrar: AppAttestRegistering, @unchecked Sendable {
     }
 
     func register(keyID: String, attestation: Data, challenge: String) async throws {
-        lock.withLock { registrations.append((keyID, challenge)) }
+        try lock.withLock {
+            if failNextRegistration {
+                failNextRegistration = false
+                throw NetworkError.offline
+            }
+            registrations.append((keyID, challenge))
+        }
     }
 }
 

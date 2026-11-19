@@ -133,7 +133,7 @@ public struct BackendAppAttestRegistrar: AppAttestRegistering {
 public actor AppAttestClient: RequestAttesting {
     /// After a failed registration (offline, backend not set up), wait this long before trying
     /// again, rather than creating a Secure Enclave key on every request.
-    public static let retryDelay: TimeInterval = 3_600
+    public static let retryDelay: TimeInterval = 15 * 60
 
     private let provider: AttestationKeyProviding
     private let registrar: AppAttestRegistering
@@ -142,7 +142,9 @@ public actor AppAttestClient: RequestAttesting {
     private let log = Logger(subsystem: "app.dayledger", category: "appattest")
 
     private var registration: Task<String, Error>?
-    /// A key created but not yet registered: attesting can be retried with the same key.
+    /// A key created but never attested (the challenge couldn't be fetched): the next attempt
+    /// uses it. Once Apple has been asked to attest a key it isn't reused, because a key can only
+    /// be attested once; a failed upload or attestation starts again with a fresh key.
     private var unregisteredKeyID: String?
     private var lastFailure: Date?
 
@@ -196,6 +198,8 @@ public actor AppAttestClient: RequestAttesting {
             // Kept so a later attempt can attest this key instead of creating another one.
             self.remember(unregistered: keyID)
             let challenge = try await registrar.challenge()
+            // From here on the key is spent if anything fails.
+            self.remember(unregistered: nil)
             let attestation = try await provider.attestKey(keyID, clientDataHash: Self.hash(Data(challenge.utf8)))
             try await registrar.register(keyID: keyID, attestation: attestation, challenge: challenge)
             return keyID
@@ -216,7 +220,7 @@ public actor AppAttestClient: RequestAttesting {
         }
     }
 
-    private func remember(unregistered keyID: String) {
+    private func remember(unregistered keyID: String?) {
         unregisteredKeyID = keyID
     }
 

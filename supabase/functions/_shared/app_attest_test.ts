@@ -202,6 +202,35 @@ Deno.test("enforce mode admits only verified, fresh requests", async () => {
   );
   assertEquals([replay.status, replay.code], [401, "attestation_invalid"]);
 
+  // Valid CBOR of the wrong shape (the integer 0) is an invalid assertion, not a server error.
+  const wrongShape = await assertRejects(
+    () =>
+      checkRequestAttestation(
+        request({ [ATTEST_KEY_HEADER]: device.keyId, [ATTEST_ASSERTION_HEADER]: "AA==" }),
+        body,
+        config,
+        registry,
+        silent,
+      ),
+    HttpError,
+  );
+  assertEquals([wrongShape.status, wrongShape.code], [401, "attestation_invalid"]);
+  assertEquals(
+    await checkRequestAttestation(
+      request({ [ATTEST_KEY_HEADER]: device.keyId, [ATTEST_ASSERTION_HEADER]: "AA==" }),
+      body,
+      { ...config, mode: "report" },
+      registry,
+      silent,
+    ),
+    "invalid",
+  );
+  // An attestation of the wrong shape too.
+  await assertRejects(
+    () => verifyAttestation({ keyId: device.keyId, attestation: "AA==", challenge: "c" }, config),
+    AttestationError,
+  );
+
   const missing = await assertRejects(
     () => checkRequestAttestation(request(), body, config, registry, silent),
     HttpError,

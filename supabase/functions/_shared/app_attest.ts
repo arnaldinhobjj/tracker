@@ -14,7 +14,7 @@
 
 import { x509 } from "./deps.ts";
 import { appAttestRootCertificate } from "./app_attest_root_ca.ts";
-import { CborError, type CborValue, decodeCbor, field } from "./cbor.ts";
+import { CborError, type CborValue, decodeCbor } from "./cbor.ts";
 import { optionalEnv } from "./env.ts";
 import { HttpError } from "./http.ts";
 
@@ -214,6 +214,14 @@ function parseAuthenticatorData(bytes: Uint8Array, attested: boolean): Authentic
   return { rpIdHash, counter, aaguid, credentialId: bytes.subarray(55, 55 + idLength) };
 }
 
+/** A text-keyed entry of a CBOR map; anything that isn't a map is a malformed object. */
+function field(value: CborValue | undefined, key: string): CborValue | undefined {
+  if (!(value instanceof Map)) {
+    throw new AttestationError(`Malformed object: expected a map for ${key}`);
+  }
+  return value.get(key);
+}
+
 function bytesField(value: CborValue, key: string): Uint8Array {
   const item = field(value, key);
   if (!(item instanceof Uint8Array)) throw new AttestationError(`Missing ${key}`);
@@ -280,7 +288,7 @@ export async function verifyAttestation(
   }
   const statement = field(object, "attStmt");
   const authData = bytesField(object, "authData");
-  const x5c = statement === undefined ? undefined : field(statement, "x5c");
+  const x5c = field(statement, "x5c");
   if (!Array.isArray(x5c) || x5c.length < 2 || !x5c.every((c) => c instanceof Uint8Array)) {
     throw new AttestationError("The attestation has no certificate chain");
   }
