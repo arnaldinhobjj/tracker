@@ -154,6 +154,7 @@ final class AppleCalendarSyncTests: XCTestCase {
         XCTAssertEqual(h.store.events.count, 1)
         XCTAssertEqual(h.store.events.values.first?.fields.title, "At Costa Coffee · £3.40")
         XCTAssertTrue(h.http.requests.isEmpty, "Nothing goes to Google")
+        XCTAssertEqual(h.sync.lastResult, "Updated 1 event", "Singular from the String Catalog")
 
         // Re-syncing writes nothing; a new purchase updates the same event.
         await h.sync.sync()

@@ -66,7 +66,10 @@ struct TodayView: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             Text(MoneyFormatting.string(minorUnits: model.totalSpentMinor))
-                .font(.system(size: 44, weight: .bold, design: .rounded).monospacedDigit())
+                // Scales with Dynamic Type; shrinks rather than wrapping a long amount.
+                .font(.system(.largeTitle, design: .rounded, weight: .bold).monospacedDigit())
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
                 .contentTransition(.numericText())
                 .accessibilityIdentifier("todayTotal")
             if let lastUpdated = model.lastUpdated {

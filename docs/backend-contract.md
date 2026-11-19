@@ -137,6 +137,14 @@ Service role only (RLS on, no policies, no client grants). Erased with the accou
 request and returns true, or returns false (counting nothing) when the limit is reached. Execute
 granted to `service_role` only.
 
+### `app_attest_keys` — pk `key_id`; `app_attest_challenges` — pk `challenge`
+App Attest keys of DayLedger installs (`public_key` base64 SPKI, `sign_count`, `environment`
+production/development) and one-time registration challenges (`expires_at`, 5 minutes). No user
+data. Service role only (RLS on, no policies, no client grants).
+`public.consume_app_attest_challenge(p_challenge text) returns boolean` deletes the challenge and
+returns true once if it hadn't expired. `public.advance_app_attest_counter(p_key_id text,
+p_counter bigint) returns boolean` stores a higher counter atomically (false for a replay).
+
 ### `public.has_active_entitlement() returns boolean`
 `security definer`, stable, `search_path = ''`. True when the caller's `subscriptions` row
 has status in (`trial`,`active`,`grace_period`) and `expires_at > now()`. Used by the insert/
@@ -210,11 +218,35 @@ so it can't be used as a general prompt proxy; builds the prompt; and calls Anth
   503 `provider_busy` (Anthropic rate-limited, overloaded or unreachable; Anthropic's own 401/403
   never reach the app as such)
 
+### `POST app-attest` (anon key or user JWT, checked by the gateway)
+- `{"action":"challenge"}` → 200 `{"challenge":"<base64url>"}` (one use, 5 minutes).
+- `{"action":"register","keyId":"<base64>","attestation":"<base64 CBOR>","challenge":"..."}` →
+  200 `{"registered":true}`. The attestation (from `DCAppAttestService.attestKey` with
+  clientDataHash = SHA-256 of the challenge) must chain to Apple's App Attestation root (bundled,
+  pinned by fingerprint), carry the nonce SHA-256(authData ‖ clientDataHash), be for
+  `APP_ATTEST_APP_ID` with counter 0 and the production environment (development too with
+  `APP_ATTEST_ALLOW_DEVELOPMENT=true`), and its key must hash to `keyId`.
+- 400 `invalid_challenge` (unknown, used or expired), 400 `attestation_invalid`,
+  503 `attestation_disabled` (`APP_ATTEST_MODE=off` or no `APP_ATTEST_APP_ID`).
+
+**Attested requests** (`truelayer-token`, `ai-suggest`): headers `X-DayLedger-Attest-Key`
+(the key ID) and `X-DayLedger-Attest-Assertion` (base64 CBOR from
+`DCAppAttestService.generateAssertion` with clientDataHash = SHA-256 of the exact request body).
+The signature must verify with the stored key and the counter must be higher than the stored one.
+With `APP_ATTEST_MODE=enforce` anything else is refused with 401 `attestation_required` (no
+headers), `attest_key_unknown` (the app registers a new key and retries once) or
+`attestation_invalid`. In `report` mode the request goes ahead; when the key is unknown or the
+signature invalid the response carries `X-DayLedger-Attest: register`, and the app registers a
+new key for the next request.
+
 ### Function secrets
 `APPLE_BUNDLE_ID`, `APPLE_ISSUER_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY` (App Store Connect
 API key, .p8 contents), `APPLE_APP_APPLE_ID` (numeric, production only).
 `ANTHROPIC_API_KEY` (required by `ai-suggest`), `ANTHROPIC_MODEL` (default `claude-opus-5-5`),
 `AI_DAILY_LIMIT` (default 20).
+`APP_ATTEST_APP_ID` (`<Team ID>.<bundle id>`; App Attest is off without it), `APP_ATTEST_MODE`
+(`off`, `report` (default) or `enforce`), `APP_ATTEST_ALLOW_DEVELOPMENT` (`true` to accept
+development keys).
 `TRUELAYER_CLIENT_ID`, `TRUELAYER_CLIENT_SECRET`, `TRUELAYER_ENVIRONMENT` (`sandbox` or `live`,
 default `sandbox`), `TRUELAYER_REDIRECT_URI` (default `dayledger://truelayer-callback`). The
 client ID must match the app's `TRUELAYER_CLIENT_ID`. Supabase provides `SUPABASE_URL`,

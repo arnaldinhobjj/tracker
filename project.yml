@@ -19,6 +19,10 @@ settings:
     CODE_SIGN_STYLE: Automatic
     TARGETED_DEVICE_FAMILY: "1"
     ENABLE_USER_SCRIPT_SANDBOXING: YES
+    # Localisation: Text/String(localized:) literals are extracted into the String Catalogs
+    # (App/Resources/Localizable.xcstrings, Widget/Localizable.xcstrings) when building in Xcode.
+    SWIFT_EMIT_LOC_STRINGS: YES
+    LOCALIZATION_PREFERS_STRING_CATALOGS: YES
 
 packages:
   DayLedgerKit:

@@ -74,10 +74,19 @@ private struct AlwaysPermissionExplanation: View {
     var openSettings: () -> Void
 
     var body: some View {
+        // At large text sizes the explanation doesn't fit: let it scroll.
+        ViewThatFits(in: .vertical) {
+            content
+            ScrollView { content }
+        }
+    }
+
+    private var content: some View {
         VStack(alignment: .leading, spacing: 16) {
             Image(systemName: "location.circle.fill")
                 .font(.system(size: 44))
                 .foregroundStyle(.tint)
+                .accessibilityHidden(true)
             Text("Log visits automatically")
                 .font(.title2.bold())
             Text("With \"While Using the App\", iOS only tells DayLedger about places while the app is open, so most visits are missed.")

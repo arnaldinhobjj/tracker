@@ -46,7 +46,8 @@ struct EmailAuthView: View {
         .alert("Check your email", isPresented: Binding(get: { resetSentTo != nil }, set: { if !$0 { resetSentTo = nil } })) {
             Button("OK") {}
         } message: {
-            Text("If an account exists for \(resetSentTo ?? "that address"), we've sent a link to reset your password. Open it on this iPhone.")
+            resetSentTo.map { Text("If an account exists for \($0), we've sent a link to reset your password. Open it on this iPhone.") }
+                ?? Text("If an account exists for that address, we've sent a link to reset your password. Open it on this iPhone.")
         }
     }
 

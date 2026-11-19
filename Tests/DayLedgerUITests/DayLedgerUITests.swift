@@ -57,6 +57,25 @@ final class DayLedgerUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["AI assistant is off"].waitForExistence(timeout: 5))
     }
 
+    /// Xcode's accessibility audit on each tab: every element has a description VoiceOver can
+    /// read, text scales with Dynamic Type, and text has enough contrast.
+    @MainActor
+    func testTabsPassTheAccessibilityAudit() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-UITestMockData"]
+        app.launch()
+        XCTAssertTrue(app.staticTexts["todayTotal"].waitForExistence(timeout: 15))
+
+        for tab in ["Today", "Places", "Suggest", "Settings"] {
+            app.tabBars.buttons[tab].tap()
+            try app.performAccessibilityAudit(for: [.sufficientElementDescription, .dynamicType, .contrast]) { issue in
+                // Issues in system-drawn chrome (no element of ours) aren't ours to fix.
+                guard let element = issue.element else { return true }
+                return element.elementType == .tabBar || element.elementType == .navigationBar
+            }
+        }
+    }
+
     /// Lists render lazily, so off-screen rows don't exist until scrolled to (small simulators).
     @MainActor
     private func scroll(_ app: XCUIApplication, until element: XCUIElement, maxSwipes: Int = 8) {
