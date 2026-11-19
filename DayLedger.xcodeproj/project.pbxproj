@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		03CF7091961A96BCDBE5F815 /* StubHTTPClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10B0FCE771623AE4206C0145 /* StubHTTPClient.swift */; };
+		06A00B53E17D0271EDF4D008 /* AccountSwitchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AAF147BD459AD2BB79811B0 /* AccountSwitchTests.swift */; };
 		0A514FFF69A8179978C58F63 /* DayLedgerUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A0FCB2CBDC5922D976F9EEA /* DayLedgerUITests.swift */; };
 		0DBD15BA012D2217EBD8CE9C /* PersistenceController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36D34223FEF15C3E8632C1F4 /* PersistenceController.swift */; };
 		13B6FCE2B64386FD2B76DA61 /* BackgroundRefresh.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEC8D6D1821B63AF7E9889B1 /* BackgroundRefresh.swift */; };
@@ -119,6 +120,7 @@
 		1286669E58BDC7A212FD12DD /* StoredVisit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoredVisit.swift; sourceTree = "<group>"; };
 		16513DE438FCB182CB1F68C2 /* TodayViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayViewModel.swift; sourceTree = "<group>"; };
 		18906B2BD101695C7EE0DC98 /* AppConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfiguration.swift; sourceTree = "<group>"; };
+		2AAF147BD459AD2BB79811B0 /* AccountSwitchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountSwitchTests.swift; sourceTree = "<group>"; };
 		2B47B0093961B07CB4855A99 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		2BDACBB32BB907C9A82A1937 /* SpendProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpendProvider.swift; sourceTree = "<group>"; };
 		2D34510AB02D32675ED46C35 /* DayLedgerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayLedgerApp.swift; sourceTree = "<group>"; };
@@ -244,6 +246,7 @@
 		38B7848B4D3716E963AC194F /* DayLedgerTests */ = {
 			isa = PBXGroup;
 			children = (
+				2AAF147BD459AD2BB79811B0 /* AccountSwitchTests.swift */,
 				E3D695265B289E6674FE02EF /* AccountTests.swift */,
 				7162884E2817615EE49E1170 /* CalendarSyncServiceTests.swift */,
 				D6416A5CE1F6A035D5988EC7 /* CloudSyncServiceTests.swift */,
@@ -656,6 +659,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				06A00B53E17D0271EDF4D008 /* AccountSwitchTests.swift in Sources */,
 				A108D191ECF2A03B14BCE7D3 /* AccountTests.swift in Sources */,
 				66DA5245C2AB3863949BE3CB /* CalendarSyncServiceTests.swift in Sources */,
 				2B00F36888B39DE4034E6A14 /* CloudSyncServiceTests.swift in Sources */,
