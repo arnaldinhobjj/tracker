@@ -145,9 +145,16 @@ final class AppEnvironment {
         subscriptions.onEntitled = {
             Task { await cloudSync.sync() }
         }
-        account.onSignedIn = { user in
-            subscriptions.setUser(user.id)
-            Task { await cloudSync.sync() }
+        account.onSignedIn = { [weak self] user in
+            Task { @MainActor in
+                // A different person signing in on this iPhone must not see, or upload, the
+                // previous account's data: wipe it before anything syncs.
+                if let self {
+                    await DataEraser(environment: self).wipeIfDifferentAccount(newUserID: user.id)
+                }
+                subscriptions.setUser(user.id)
+                await cloudSync.sync()
+            }
         }
         account.onSignedOut = {
             subscriptions.reset()

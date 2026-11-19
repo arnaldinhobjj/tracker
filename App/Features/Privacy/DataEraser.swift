@@ -1,4 +1,5 @@
 import Foundation
+import SecureStore
 
 /// Implements "Delete all my data": revokes remote access where possible and wipes
 /// everything stored on this device.
@@ -86,5 +87,45 @@ struct DataEraser {
             await account.signOut()
         }
         return report
+    }
+
+    // MARK: Switching accounts
+
+    /// Key in `UserDefaults` holding the id of the last DayLedger account signed in on this device.
+    static let lastAccountKey = "account.lastSignedInUserID"
+
+    /// Called after a sign-in. When a *different* account was signed in on this device before,
+    /// everything the previous person left here is wiped (bank and Google connections, cached
+    /// transactions and visits, AI keys, widget, preferences) so none of it is shown to, or
+    /// uploaded into, the new account. Their cloud copy is untouched. The new session is kept.
+    /// Returns true when data was wiped.
+    @discardableResult
+    func wipeIfDifferentAccount(newUserID: UUID) async -> Bool {
+        let defaults = environment.defaults
+        let previous = defaults.string(forKey: Self.lastAccountKey).flatMap(UUID.init(uuidString:))
+        defer { defaults.set(newUserID.uuidString, forKey: Self.lastAccountKey) }
+        guard let previous, previous != newUserID else { return false }
+
+        environment.locationLogging.setEnabled(false)
+        environment.settings.calendarWritingEnabled = false
+        await environment.googleAuth.signOut()
+        environment.calendarSync.forgetCalendar()
+        await environment.bankService.disconnectAll()
+        try? environment.transactionRepository.deleteAll()
+        try? environment.visitRepository.deleteAll()
+
+        // Every Keychain item except the new account's session.
+        let store = environment.secureStore
+        let session = try? store.data(for: SecureStoreKey.supabaseSession)
+        try? store.removeAll()
+        if let session { try? store.set(session, for: SecureStoreKey.supabaseSession) }
+
+        environment.widgetPublisher.clear()
+        environment.transactionSync.reset()
+        for key in defaults.dictionaryRepresentation().keys {
+            defaults.removeObject(forKey: key)
+        }
+        environment.settings.resetToDefaults()
+        return true
     }
 }
