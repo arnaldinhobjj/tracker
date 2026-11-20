@@ -539,3 +539,18 @@ final class RecoveryKeyTests: XCTestCase {
         XCTAssertEqual(noKey, .noKey)
     }
 }
+
+extension RecoveryKeyTests {
+    func testRecoveryCountsOnlyForTheCurrentKey() async throws {
+        let http = StubHTTPClient()
+        let manager = SyncKeyManager(store: InMemorySecureStore())
+        http.on("/rest/v1/sync_key_recovery", body: #"[{"user_id":"\#(userID.uuidString.lowercased())","key_id":"\#(String(repeating: "a", count: 32))","wrapped_key":"v1.AAAA"}]"#)
+        http.on("/rest/v1/sync_key_recovery", body: "[]")
+        let client = SupabaseRESTClient(configuration: SupabaseConfiguration(urlString: "https://abc.supabase.co", anonKey: "anon"),
+                                        tokens: MockAuthService(session: MockAuthService.makeSession(userID: userID)), http: http)
+        let current = try await manager.hasRecovery(forKeyID: String(repeating: "a", count: 32), rest: client)
+        let none = try await manager.hasRecovery(forKeyID: String(repeating: "a", count: 32), rest: client)
+        XCTAssertTrue(current)
+        XCTAssertFalse(none)
+    }
+}

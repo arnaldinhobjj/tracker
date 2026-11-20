@@ -56,11 +56,9 @@ public struct SyncKeyManager: Sendable {
 
     // MARK: Recovery key
 
-    /// Whether the account has a recovery copy of its current key.
-    public func hasRecovery(rest: SupabaseRESTClient) async throws -> Bool {
-        guard let record = try await rest.fetchSyncKey(),
-              let copy = try await rest.fetchSyncKeyRecovery() else { return false }
-        return copy.keyID == record.keyID
+    /// Whether the account has a recovery copy of its current key (`keyID`, from `resolve`).
+    public func hasRecovery(forKeyID keyID: String, rest: SupabaseRESTClient) async throws -> Bool {
+        try await rest.fetchSyncKeyRecovery()?.keyID == keyID
     }
 
     /// A new recovery key, not yet stored anywhere: show it to the user, then `saveRecoveryKey`

@@ -38,6 +38,10 @@ struct UserFacingError: Equatable, Identifiable {
             self = Self.ai(error)
         case let error as AuthError:
             self = Self.auth(error)
+        case let error as RecoveryKey.ParseError:
+            self = Self.recoveryKey(error)
+        case let error as SyncKeyRecoveryError:
+            self = Self.recovery(error)
         default:
             self = UserFacingError(title: String(localized: "Something went wrong"), message: error.localizedDescription, action: .retry)
         }
@@ -86,6 +90,34 @@ struct UserFacingError: Equatable, Identifiable {
     /// Like `init(_:)`, for errors from the account and subscription screens.
     static func account(_ error: Error) -> UserFacingError {
         UserFacingError(error)
+    }
+
+    static func recoveryKey(_ error: RecoveryKey.ParseError) -> UserFacingError {
+        switch error {
+        case .wrongLength:
+            return UserFacingError(title: String(localized: "That isn't a whole recovery key"),
+                                   message: String(localized: "A recovery key has 55 letters and numbers, in 11 groups of five. Check you entered all of it."))
+        case .invalidCharacter(let character):
+            return UserFacingError(title: String(localized: "Check your recovery key"),
+                                   message: String(localized: "\"\(String(character))\" can't be part of a recovery key. It only has the digits 0–9 and capital letters."))
+        case .checksumMismatch:
+            return UserFacingError(title: String(localized: "There's a typo in the recovery key"),
+                                   message: String(localized: "One of the characters doesn't match. Check each group against your saved copy."))
+        }
+    }
+
+    static func recovery(_ error: SyncKeyRecoveryError) -> UserFacingError {
+        switch error {
+        case .wrongRecoveryKey:
+            return UserFacingError(title: String(localized: "That's not this account's recovery key"),
+                                   message: String(localized: "It's a valid key, but not the current one for this account. If you made a new recovery key later, use that one."))
+        case .notSetUp:
+            return UserFacingError(title: String(localized: "No recovery key for this account"),
+                                   message: String(localized: "No recovery key was made for the current encryption key. Wait for iCloud Keychain, or start over with this iPhone's data."))
+        case .noKey:
+            return UserFacingError(title: String(localized: "Nothing to recover yet"),
+                                   message: String(localized: "This account has no encrypted data yet."))
+        }
     }
 
     static func ai(_ error: AIError) -> UserFacingError {
