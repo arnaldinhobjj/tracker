@@ -51,7 +51,10 @@ struct RecoveryKeySetupView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
+                    // The save can't be called back once sent: stay until it finishes, so a
+                    // cancelled sheet never replaces the old recovery key behind the user's back.
                     Button("Cancel") { dismiss() }
+                        .disabled(isSaving)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     if isSaving {
@@ -142,6 +145,7 @@ struct RecoveryKeyEntryView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
+                        .disabled(isRestoring)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     if isRestoring {
