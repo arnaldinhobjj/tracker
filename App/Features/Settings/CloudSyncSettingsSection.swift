@@ -7,6 +7,8 @@ struct CloudSyncSettingsSection: View {
 
     @State private var confirmingVisitSyncOff = false
     @State private var confirmingStartOver = false
+    @State private var showingRecoverySetup = false
+    @State private var showingRecoveryEntry = false
     @State private var isWorking = false
     @State private var error: UserFacingError?
 
@@ -25,10 +27,25 @@ struct CloudSyncSettingsSection: View {
                         .font(.footnote)
                 }
                 .accessibilityIdentifier("waitingForKey")
+                if cloudSync.recoveryStatus == .setUp {
+                    Button("Enter recovery key") { showingRecoveryEntry = true }
+                        .accessibilityIdentifier("enterRecoveryKey")
+                }
                 Button("Start over with this iPhone's data", role: .destructive) { confirmingStartOver = true }
                     .disabled(isWorking)
             case .ready:
                 Label("End-to-end encrypted", systemImage: "lock.icloud")
+                switch cloudSync.recoveryStatus {
+                case .setUp:
+                    LabeledContent("Recovery key", value: String(localized: "Saved"))
+                    Button("Make a new recovery key") { showingRecoverySetup = true }
+                        .accessibilityIdentifier("replaceRecoveryKey")
+                case .notSetUp:
+                    Button("Set up a recovery key") { showingRecoverySetup = true }
+                        .accessibilityIdentifier("setUpRecoveryKey")
+                case .unknown:
+                    EmptyView()
+                }
             case .unknown:
                 EmptyView()
             }
@@ -60,10 +77,16 @@ struct CloudSyncSettingsSection: View {
         .alert(item: $error) { error in
             Alert(title: Text(error.title), message: Text(error.message))
         }
+        .sheet(isPresented: $showingRecoverySetup) {
+            RecoveryKeySetupView(cloudSync: cloudSync, isReplacing: cloudSync.recoveryStatus == .setUp)
+        }
+        .sheet(isPresented: $showingRecoveryEntry) {
+            RecoveryKeyEntryView(cloudSync: cloudSync)
+        }
     }
 
     private var footer: String {
-        var text = "Transactions are end-to-end encrypted on this iPhone before they're uploaded: only your devices can read them, not DayLedger. The key is kept in iCloud Keychain. "
+        var text = "Transactions are end-to-end encrypted on this iPhone before they're uploaded: only your devices can read them, not DayLedger. The key is kept in iCloud Keychain; a recovery key lets you restore it without iCloud Keychain. "
         text += settings.visitSyncEnabled
             ? "Visits (places and times) are synced too, encrypted, on all your devices."
             : "Visits stay on your devices unless you turn on visit sync."

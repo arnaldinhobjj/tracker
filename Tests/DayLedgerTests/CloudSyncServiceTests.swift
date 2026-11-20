@@ -440,6 +440,80 @@ final class CloudSyncServiceTests: XCTestCase {
         XCTAssertEqual(deletes, ["/rest/v1/transactions", "/rest/v1/visits", "/rest/v1/sync_keys"])
         XCTAssertTrue(h.http.requests.contains { $0.httpMethod == "POST" && $0.url?.path == "/rest/v1/sync_keys" }, "A new key is registered")
         XCTAssertEqual(h.transactions.cloudDirty().count, 1, "Everything here will be uploaded again with the new key")
+        XCTAssertEqual(h.service.recoveryStatus, .notSetUp, "The recovery copy went with the old key")
+    }
+
+    // MARK: Recovery key
+
+    private func recoveryJSON(_ recovery: RecoveryKey, for syncKey: SyncKey) throws -> String {
+        let wrapped = try SyncKeyRecovery.wrap(syncKey, with: recovery, userID: userID)
+        return #"[{"user_id":"\#(userID.uuidString.lowercased())","key_id":"\#(syncKey.id)","wrapped_key":"\#(wrapped)"}]"#
+    }
+
+    func testANewIPhoneWithoutICloudKeychainRestoresWithTheRecoveryKey() async throws {
+        let h = makeHarness(canWrite: false, keyOnDevice: false)
+        let recovery = RecoveryKey.generate()
+        let remote = try encryptedRowJSON(transaction("a:from-other-phone"), updatedAt: far(5))
+        // First sync: the key hasn't arrived, but the account has a recovery copy.
+        h.http.on("/rest/v1/user_settings", body: "[]")
+        h.http.on("/rest/v1/sync_keys", body: #"[{"user_id":"\#(userID.uuidString.lowercased())","key_id":"\#(key.id)"}]"#)
+        h.http.on("/rest/v1/sync_key_recovery", body: try recoveryJSON(recovery, for: key))
+
+        await h.service.sync()
+        XCTAssertEqual(h.service.encryptionStatus, .waitingForKey)
+        XCTAssertEqual(h.service.recoveryStatus, .setUp, "Settings offers to enter the recovery key")
+
+        // The user types it (lowercase, with spaces: as people do).
+        h.http.on("/rest/v1/sync_keys", body: #"[{"user_id":"\#(userID.uuidString.lowercased())","key_id":"\#(key.id)"}]"#)
+        h.http.on("/rest/v1/sync_key_recovery", body: try recoveryJSON(recovery, for: key))
+        stubRun(h, transactions: "[\(remote)]")
+        h.http.on("/rest/v1/sync_key_recovery", body: try recoveryJSON(recovery, for: key))
+        try await h.service.restore(withRecoveryKey: recovery.formatted.lowercased().replacingOccurrences(of: "-", with: " "))
+
+        XCTAssertEqual(h.service.encryptionStatus, .ready)
+        XCTAssertNotNil(try h.keyStore.data(for: SecureStoreKey.syncKey(userID: userID, keyID: key.id)), "The key is kept on this iPhone")
+        XCTAssertEqual(h.transactions.allStored().map(\.id), ["a:from-other-phone"], "The synced data is readable again")
+    }
+
+    func testAWrongOrMistypedRecoveryKeyChangesNothing() async throws {
+        let h = makeHarness(canWrite: false, keyOnDevice: false)
+        h.http.on("/rest/v1/sync_keys", body: #"[{"user_id":"\#(userID.uuidString.lowercased())","key_id":"\#(key.id)"}]"#)
+        h.http.on("/rest/v1/sync_key_recovery", body: try recoveryJSON(RecoveryKey.generate(), for: key))
+
+        do {
+            try await h.service.restore(withRecoveryKey: RecoveryKey.generate().formatted)
+            XCTFail("Expected an error")
+        } catch {
+            XCTAssertEqual(error as? SyncKeyRecoveryError, .wrongRecoveryKey)
+        }
+        do {
+            try await h.service.restore(withRecoveryKey: "ABCDE")
+            XCTFail("Expected an error")
+        } catch {
+            XCTAssertEqual(error as? RecoveryKey.ParseError, .wrongLength)
+        }
+        XCTAssertNil(try h.keyStore.data(for: SecureStoreKey.syncKey(userID: userID, keyID: key.id)))
+    }
+
+    func testSavingARecoveryKeyUploadsOnlyTheWrappedKey() async throws {
+        let h = makeHarness(canWrite: true)
+        stubRun(h)
+        h.http.on("/rest/v1/user_settings", status: 201, body: "")
+        h.http.on("/rest/v1/sync_key_recovery", body: "[]")
+        await h.service.sync()
+        XCTAssertEqual(h.service.recoveryStatus, .notSetUp)
+
+        let recovery = h.service.newRecoveryKey()
+        XCTAssertFalse(h.http.requests.contains { $0.url?.path == "/rest/v1/sync_key_recovery" && $0.httpMethod == "POST" },
+                       "Nothing is stored before the user confirms they kept it")
+        h.http.on("/rest/v1/sync_key_recovery", status: 201, body: "")
+        try await h.service.saveRecoveryKey(recovery)
+
+        XCTAssertEqual(h.service.recoveryStatus, .setUp)
+        let post = try XCTUnwrap(h.http.requests.last { $0.url?.path == "/rest/v1/sync_key_recovery" && $0.httpMethod == "POST" })
+        let body = String(decoding: try XCTUnwrap(post.httpBody), as: UTF8.self)
+        XCTAssertFalse(body.contains(key.data.base64EncodedString()))
+        XCTAssertFalse(body.contains(recovery.formatted))
     }
 }
 

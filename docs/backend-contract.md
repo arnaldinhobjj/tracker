@@ -100,6 +100,17 @@ Insert-once (`ON CONFLICT DO NOTHING`; no update policy) so two devices can't re
 competing keys. Select/insert/delete own row; no entitlement needed. Deleting it (with the
 user's transactions and visits) is how a user starts encryption over.
 
+### `sync_key_recovery` — pk `user_id`
+| column | type | notes |
+|---|---|---|
+| key_id | text | the key this copy unlocks; `(user_id, key_id)` references `sync_keys` (cascade) |
+| wrapped_key | text | the sync key sealed with the user's recovery key: `v1.<base64>` |
+| updated_at | timestamptz | set on every replace |
+
+One row per user, replaced (upsert `merge-duplicates`) when the user makes a new recovery key.
+Select/insert/update/delete own row; no entitlement needed. Starting over (deleting the
+`sync_keys` row) deletes it too, so a copy always belongs to the account's current key.
+
 ### `user_settings` — pk `user_id`
 | column | type | notes |
 |---|---|---|
@@ -296,6 +307,15 @@ Session (access token, refresh token, expiry, user id, email) is stored in the *
   not on this device → wait (the app explains iCloud Keychain) and sync nothing. None registered
   → generate, save locally, register with `ON CONFLICT DO NOTHING`, read back; if another device
   won the race, discard ours and wait for theirs.
+- **Recovery key (optional):** 256 random bits the user keeps, shown as 55 Crockford base32
+  characters in groups of five (the last are a 16-bit checksum over the label
+  `DayLedger recovery key v1` and the secret, so typos are told apart from a wrong key). The sync
+  key is sealed with AES-256-GCM under HKDF-SHA256(recovery secret, salt `dayledger.recovery.v1`,
+  info `dayledger.recovery.v1|<user id>`), associated data
+  `dayledger.recovery.v1|<user id>|<key id>`, and stored in `sync_key_recovery` as
+  `v1.` + base64(nonce ‖ ciphertext ‖ tag). The app shows the recovery key once and uploads the
+  wrapped key only after the user confirms they kept it. A device waiting for the key can unwrap
+  it with the recovery key and save it locally; the server never sees either key.
 - **Rows:** AES-256-GCM over the row's JSON content (`TransactionSyncContent` /
   `VisitSyncContent`, dates as milliseconds since 1970). Associated data
   `dayledger.sync.v1|<table>|<user id>|<row id>` binds each payload to its row and user. Stored as

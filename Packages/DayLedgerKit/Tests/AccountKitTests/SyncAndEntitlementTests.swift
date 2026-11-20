@@ -393,3 +393,164 @@ private struct FixedAttester: RequestAttesting {
 
     func reset() async {}
 }
+
+final class RecoveryKeyTests: XCTestCase {
+    let userID = UUID(uuidString: "6F9619FF-8B86-D011-B42D-00C04FC964FF")!
+
+    func testFormatRoundTripsAndIsEasyToRead() throws {
+        let recovery = RecoveryKey.generate()
+        let text = recovery.formatted
+        let groups = text.split(separator: "-")
+        XCTAssertEqual(groups.count, 11)
+        XCTAssertTrue(groups.allSatisfy { $0.count == 5 })
+        XCTAssertFalse(text.contains { "ILOU".contains($0) }, "No characters that are easy to misread")
+        XCTAssertEqual(try RecoveryKey.parse(text), recovery)
+    }
+
+    func testTypingIsForgiving() throws {
+        let recovery = try XCTUnwrap(RecoveryKey(secret: Data((0..<32).map { UInt8($0 * 7 % 256) })))
+        let text = recovery.formatted
+        XCTAssertEqual(try RecoveryKey.parse(text.lowercased()), recovery)
+        XCTAssertEqual(try RecoveryKey.parse(text.replacingOccurrences(of: "-", with: " ")), recovery)
+        XCTAssertEqual(try RecoveryKey.parse(text.replacingOccurrences(of: "0", with: "O").replacingOccurrences(of: "1", with: "l")), recovery)
+    }
+
+    func testTyposAreReportedAsTypos() throws {
+        let text = RecoveryKey.generate().formatted
+        var characters = Array(text)
+        let index = characters.firstIndex { $0 != "-" }!
+        characters[index] = characters[index] == "A" ? "B" : "A"
+        XCTAssertThrowsError(try RecoveryKey.parse(String(characters))) { error in
+            XCTAssertEqual(error as? RecoveryKey.ParseError, .checksumMismatch)
+        }
+        XCTAssertThrowsError(try RecoveryKey.parse(String(text.dropLast(3)))) { error in
+            XCTAssertEqual(error as? RecoveryKey.ParseError, .wrongLength)
+        }
+        XCTAssertThrowsError(try RecoveryKey.parse(text + "U")) { error in
+            XCTAssertEqual(error as? RecoveryKey.ParseError, .invalidCharacter("U"))
+        }
+    }
+
+    func testWrappedKeyOpensOnlyWithTheSameRecoveryKeyUserAndKey() throws {
+        let key = SyncKey.generate()
+        let recovery = RecoveryKey.generate()
+        let wrapped = try SyncKeyRecovery.wrap(key, with: recovery, userID: userID)
+        XCTAssertTrue(wrapped.hasPrefix("v1."))
+        XCTAssertFalse(wrapped.contains(key.data.base64EncodedString()), "The key isn't stored in the clear")
+
+        XCTAssertEqual(try SyncKeyRecovery.unwrap(wrapped, keyID: key.id, with: recovery, userID: userID), key)
+        XCTAssertThrowsError(try SyncKeyRecovery.unwrap(wrapped, keyID: key.id, with: RecoveryKey.generate(), userID: userID)) {
+            XCTAssertEqual($0 as? SyncKeyRecoveryError, .wrongRecoveryKey)
+        }
+        XCTAssertThrowsError(try SyncKeyRecovery.unwrap(wrapped, keyID: key.id, with: recovery, userID: UUID())) {
+            XCTAssertEqual($0 as? SyncKeyRecoveryError, .wrongRecoveryKey, "Bound to the account")
+        }
+        XCTAssertThrowsError(try SyncKeyRecovery.unwrap(wrapped, keyID: String(repeating: "a", count: 32), with: recovery, userID: userID)) {
+            XCTAssertEqual($0 as? SyncKeyRecoveryError, .wrongRecoveryKey, "Bound to the key id")
+        }
+        var tampered = Array(wrapped)
+        tampered[10] = tampered[10] == "A" ? "B" : "A"
+        XCTAssertThrowsError(try SyncKeyRecovery.unwrap(String(tampered), keyID: key.id, with: recovery, userID: userID))
+    }
+
+    // MARK: SyncKeyManager
+
+    private func makeClient(_ http: StubHTTPClient) -> SupabaseRESTClient {
+        SupabaseRESTClient(configuration: SupabaseConfiguration(urlString: "https://abc.supabase.co", anonKey: "anon"),
+                           tokens: MockAuthService(session: MockAuthService.makeSession(userID: userID)), http: http)
+    }
+
+    private func keyRecord(_ keyID: String) -> String {
+        #"[{"user_id":"\#(userID.uuidString.lowercased())","key_id":"\#(keyID)"}]"#
+    }
+
+    private func recoveryRecord(_ keyID: String, _ wrapped: String) -> String {
+        #"[{"user_id":"\#(userID.uuidString.lowercased())","key_id":"\#(keyID)","wrapped_key":"\#(wrapped)"}]"#
+    }
+
+    func testMakingARecoveryKeySendsOnlyTheWrappedKey() async throws {
+        let key = SyncKey.generate()
+        let recovery = RecoveryKey.generate()
+        let http = StubHTTPClient()
+        http.on("/rest/v1/sync_key_recovery", status: 201, body: "")
+        let manager = SyncKeyManager(store: InMemorySecureStore(), generateRecoveryKey: { recovery })
+
+        let made = manager.newRecoveryKey()
+        XCTAssertEqual(made, recovery)
+        XCTAssertTrue(http.requests.isEmpty, "Nothing is stored until the user has kept the key")
+        try await manager.saveRecoveryKey(made, for: key, userID: userID, rest: makeClient(http))
+
+        let post = try XCTUnwrap(http.requests(to: "/rest/v1/sync_key_recovery").first { $0.httpMethod == "POST" })
+        XCTAssertEqual(post.value(forHTTPHeaderField: "Prefer"), "resolution=merge-duplicates,return=minimal", "Replaces an older copy")
+        let sent = try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap(post.httpBody)) as? [[String: String]]).first
+        XCTAssertEqual(sent?["key_id"], key.id)
+        let body = String(decoding: try XCTUnwrap(post.httpBody), as: UTF8.self)
+        XCTAssertFalse(body.contains(key.data.base64EncodedString()), "Never the key itself")
+        XCTAssertFalse(body.contains(recovery.formatted), "Never the recovery key")
+        XCTAssertEqual(try SyncKeyRecovery.unwrap(XCTUnwrap(sent?["wrapped_key"]), keyID: key.id, with: recovery, userID: userID), key)
+    }
+
+    func testRestoringSavesTheKeyOnThisDevice() async throws {
+        let key = SyncKey.generate()
+        let recovery = RecoveryKey.generate()
+        let wrapped = try SyncKeyRecovery.wrap(key, with: recovery, userID: userID)
+        let store = InMemorySecureStore()
+        let manager = SyncKeyManager(store: store)
+
+        let http = StubHTTPClient()
+        http.on("/rest/v1/sync_keys", body: keyRecord(key.id))
+        http.on("/rest/v1/sync_key_recovery", body: recoveryRecord(key.id, wrapped))
+        let restored = try await manager.restore(userID: userID, with: recovery, rest: makeClient(http))
+
+        XCTAssertEqual(restored, key)
+        XCTAssertEqual(manager.localKey(userID: userID, keyID: key.id), key)
+    }
+
+    func testRestoreFailures() async throws {
+        let key = SyncKey.generate()
+        let recovery = RecoveryKey.generate()
+        let wrapped = try SyncKeyRecovery.wrap(key, with: recovery, userID: userID)
+        let manager = SyncKeyManager(store: InMemorySecureStore())
+
+        func attempt(_ setUp: (StubHTTPClient) -> Void, with recoveryKey: RecoveryKey) async -> SyncKeyRecoveryError? {
+            let http = StubHTTPClient()
+            setUp(http)
+            do {
+                _ = try await manager.restore(userID: userID, with: recoveryKey, rest: makeClient(http))
+                return nil
+            } catch {
+                return error as? SyncKeyRecoveryError
+            }
+        }
+
+        let wrong = await attempt({
+            $0.on("/rest/v1/sync_keys", body: keyRecord(key.id))
+            $0.on("/rest/v1/sync_key_recovery", body: recoveryRecord(key.id, wrapped))
+        }, with: RecoveryKey.generate())
+        XCTAssertEqual(wrong, .wrongRecoveryKey)
+
+        let none = await attempt({
+            $0.on("/rest/v1/sync_keys", body: keyRecord(key.id))
+            $0.on("/rest/v1/sync_key_recovery", body: "[]")
+        }, with: recovery)
+        XCTAssertEqual(none, .notSetUp)
+
+        let noKey = await attempt({ $0.on("/rest/v1/sync_keys", body: "[]") }, with: recovery)
+        XCTAssertEqual(noKey, .noKey)
+    }
+}
+
+extension RecoveryKeyTests {
+    func testRecoveryCountsOnlyForTheCurrentKey() async throws {
+        let http = StubHTTPClient()
+        let manager = SyncKeyManager(store: InMemorySecureStore())
+        http.on("/rest/v1/sync_key_recovery", body: #"[{"user_id":"\#(userID.uuidString.lowercased())","key_id":"\#(String(repeating: "a", count: 32))","wrapped_key":"v1.AAAA"}]"#)
+        http.on("/rest/v1/sync_key_recovery", body: "[]")
+        let client = SupabaseRESTClient(configuration: SupabaseConfiguration(urlString: "https://abc.supabase.co", anonKey: "anon"),
+                                        tokens: MockAuthService(session: MockAuthService.makeSession(userID: userID)), http: http)
+        let current = try await manager.hasRecovery(forKeyID: String(repeating: "a", count: 32), rest: client)
+        let none = try await manager.hasRecovery(forKeyID: String(repeating: "a", count: 32), rest: client)
+        XCTAssertTrue(current)
+        XCTAssertFalse(none)
+    }
+}

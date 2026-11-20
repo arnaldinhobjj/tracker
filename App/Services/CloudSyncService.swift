@@ -64,9 +64,20 @@ final class CloudSyncService {
         case waitingForKey
     }
 
+    enum RecoveryStatus: Equatable {
+        /// Not checked yet (or signed out, or offline).
+        case unknown
+        /// No recovery key for the account's current encryption key.
+        case notSetUp
+        case setUp
+    }
+
     private(set) var isSyncing = false
     private(set) var lastSync: Date?
     private(set) var encryptionStatus = EncryptionStatus.unknown
+    /// Whether the user has a recovery key for the current encryption key: offered when this
+    /// device is waiting for the key, and in Settings to set one up.
+    private(set) var recoveryStatus = RecoveryStatus.unknown
     /// Visits uploaded by an older app version (before encryption and before visit sync was
     /// opt-in) are still in the account. Until the user decides, they are neither re-uploaded nor
     /// deleted.
@@ -154,6 +165,16 @@ final class CloudSyncService {
 
             let resolution = try await keys.resolve(userID: userID, rest: rest)
             try ensureCurrent(userID)
+            // Best effort: not knowing only hides the recovery options until the next sync.
+            let currentKeyID: String
+            switch resolution {
+            case .ready(let key): currentKeyID = key.id
+            case .missing(let keyID): currentKeyID = keyID
+            }
+            if let hasRecovery = try? await keys.hasRecovery(forKeyID: currentKeyID, rest: rest) {
+                try ensureCurrent(userID)
+                recoveryStatus = hasRecovery ? .setUp : .notSetUp
+            }
             guard case .ready(let key) = resolution else {
                 encryptionStatus = .waitingForKey
                 error = nil
@@ -238,6 +259,35 @@ final class CloudSyncService {
         defaults.removeObject(forKey: keyIDKey(userID))
         clearTombstones(Set(pendingTombstones().map(\.transaction.id)))
         setLegacyVisits(false, userID: userID)
+        encryptionStatus = .unknown
+        // Deleting the key registration deleted its recovery copy too.
+        recoveryStatus = .notSetUp
+        await sync()
+    }
+
+    // MARK: Recovery key
+
+    /// A new recovery key to show the user. Nothing changes until `saveRecoveryKey`.
+    func newRecoveryKey() -> RecoveryKey {
+        keys.newRecoveryKey()
+    }
+
+    /// Stores the account's key wrapped with `recovery` (the user has confirmed they kept it). An
+    /// earlier recovery key stops working.
+    func saveRecoveryKey(_ recovery: RecoveryKey) async throws {
+        guard let rest, let userID = currentUserID(), let keyID = defaults.string(forKey: keyIDKey(userID)),
+              let key = keys.localKey(userID: userID, keyID: keyID) else {
+            throw SyncKeyRecoveryError.noKey
+        }
+        try await keys.saveRecoveryKey(recovery, for: key, userID: userID, rest: rest)
+        recoveryStatus = .setUp
+    }
+
+    /// Restores the account's key on this device from the recovery key the user typed, then syncs.
+    func restore(withRecoveryKey text: String) async throws {
+        guard let rest, let userID = currentUserID() else { throw SyncKeyRecoveryError.noKey }
+        let recovery = try RecoveryKey.parse(text)
+        _ = try await keys.restore(userID: userID, with: recovery, rest: rest)
         encryptionStatus = .unknown
         await sync()
     }

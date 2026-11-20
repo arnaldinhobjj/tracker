@@ -9,7 +9,7 @@ stores ciphertext. The binding spec is [`docs/backend-contract.md`](../docs/back
 supabase/
   config.toml                         local stack (`supabase start`) + function JWT settings
   migrations/                         schema, RLS, has_active_entitlement(), grants
-  tests/database/*.test.sql           pgTAP: RLS isolation, entitlement gating, cascade deletes, encryption, AI quota, App Attest
+  tests/database/*.test.sql           pgTAP: RLS isolation, entitlement gating, cascade deletes, encryption, recovery key, AI quota, App Attest
   functions/
     verify-subscription/              POST, user JWT: verify a StoreKit 2 transaction, store it
     entitlement/                      GET,  user JWT: current entitlement
