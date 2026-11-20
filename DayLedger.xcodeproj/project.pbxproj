@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		02F18B0B4E1D4608995C73EE /* RecoveryKeyViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B289C5718F1AB24044921BC /* RecoveryKeyViews.swift */; };
 		03CF7091961A96BCDBE5F815 /* StubHTTPClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10B0FCE771623AE4206C0145 /* StubHTTPClient.swift */; };
 		06A00B53E17D0271EDF4D008 /* AccountSwitchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AAF147BD459AD2BB79811B0 /* AccountSwitchTests.swift */; };
 		0A514FFF69A8179978C58F63 /* DayLedgerUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A0FCB2CBDC5922D976F9EEA /* DayLedgerUITests.swift */; };
@@ -144,6 +145,7 @@
 		36D34223FEF15C3E8632C1F4 /* PersistenceController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistenceController.swift; sourceTree = "<group>"; };
 		41A6BAEB2DF44AF186E9598C /* DayLedgerTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = DayLedgerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		46B9181C4E2553F85A4752DE /* DayLedgerWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = DayLedgerWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		4B289C5718F1AB24044921BC /* RecoveryKeyViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryKeyViews.swift; sourceTree = "<group>"; };
 		4D8EF86825E39A1DB2B1DD1B /* LocationSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationSettingsSection.swift; sourceTree = "<group>"; };
 		4FA45C6C6FB058332677243F /* TransactionRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransactionRow.swift; sourceTree = "<group>"; };
 		556E530FB17BB60AA5B63EFC /* DayLedgerKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DayLedgerKit; path = Packages/DayLedgerKit; sourceTree = SOURCE_ROOT; };
@@ -293,6 +295,7 @@
 				7FF38CD569C1321C0FA719E0 /* CalendarSettingsSection.swift */,
 				F0A33096FF42548B2E78FFBB /* CloudSyncSettingsSection.swift */,
 				4D8EF86825E39A1DB2B1DD1B /* LocationSettingsSection.swift */,
+				4B289C5718F1AB24044921BC /* RecoveryKeyViews.swift */,
 				35A9AA6A42E3433B3EF68F65 /* SettingsView.swift */,
 			);
 			path = Settings;
@@ -683,6 +686,7 @@
 				0DBD15BA012D2217EBD8CE9C /* PersistenceController.swift in Sources */,
 				1AB106462152997DA3533082 /* PlacesView.swift in Sources */,
 				71BA8EDB47081E38BEC4DB06 /* PrivacyView.swift in Sources */,
+				02F18B0B4E1D4608995C73EE /* RecoveryKeyViews.swift in Sources */,
 				B1FB04B41B437490986CB693 /* RootView.swift in Sources */,
 				60EFEC2068D181F8C1895C51 /* SchemaVersions.swift in Sources */,
 				9D8E64F42B8E894B9119D1FE /* SettingsView.swift in Sources */,
