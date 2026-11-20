@@ -20,10 +20,13 @@ public enum SyncKeyResolution: Equatable, Sendable {
 public struct SyncKeyManager: Sendable {
     private let store: SecureStoring
     private let generate: @Sendable () -> SyncKey
+    private let generateRecoveryKey: @Sendable () -> RecoveryKey
 
-    public init(store: SecureStoring, generate: @escaping @Sendable () -> SyncKey = { SyncKey.generate() }) {
+    public init(store: SecureStoring, generate: @escaping @Sendable () -> SyncKey = { SyncKey.generate() },
+                generateRecoveryKey: @escaping @Sendable () -> RecoveryKey = { RecoveryKey.generate() }) {
         self.store = store
         self.generate = generate
+        self.generateRecoveryKey = generateRecoveryKey
     }
 
     public func localKey(userID: UUID, keyID: String) -> SyncKey? {
@@ -49,5 +52,40 @@ public struct SyncKeyManager: Sendable {
         // Another device registered first: ours was never used.
         try? store.remove(SecureStoreKey.syncKey(userID: userID, keyID: key.id))
         return localKey(userID: userID, keyID: winner.keyID).map(SyncKeyResolution.ready) ?? .missing(keyID: winner.keyID)
+    }
+
+    // MARK: Recovery key
+
+    /// Whether the account has a recovery copy of its current key.
+    public func hasRecovery(rest: SupabaseRESTClient) async throws -> Bool {
+        guard let record = try await rest.fetchSyncKey(),
+              let copy = try await rest.fetchSyncKeyRecovery() else { return false }
+        return copy.keyID == record.keyID
+    }
+
+    /// A new recovery key, not yet stored anywhere: show it to the user, then `saveRecoveryKey`
+    /// once they confirm they've kept it. (Saving first would make an earlier recovery key stop
+    /// working before the user has the new one.)
+    public func newRecoveryKey() -> RecoveryKey {
+        generateRecoveryKey()
+    }
+
+    /// Stores `key` wrapped with `recovery`, replacing any earlier copy (the old recovery key stops
+    /// working). Only the wrapped key is sent: never the key or the recovery key.
+    public func saveRecoveryKey(_ recovery: RecoveryKey, for key: SyncKey, userID: UUID, rest: SupabaseRESTClient) async throws {
+        let wrapped = try SyncKeyRecovery.wrap(key, with: recovery, userID: userID)
+        try await rest.saveSyncKeyRecovery(SyncKeyRecoveryRecord(userID: userID, keyID: key.id, wrappedKey: wrapped))
+    }
+
+    /// Unwraps the account's key with the user's recovery key and keeps it on this device (in the
+    /// same store as keys that arrive through iCloud Keychain).
+    public func restore(userID: UUID, with recovery: RecoveryKey, rest: SupabaseRESTClient) async throws -> SyncKey {
+        guard let record = try await rest.fetchSyncKey() else { throw SyncKeyRecoveryError.noKey }
+        guard let copy = try await rest.fetchSyncKeyRecovery(), copy.keyID == record.keyID else {
+            throw SyncKeyRecoveryError.notSetUp
+        }
+        let key = try SyncKeyRecovery.unwrap(copy.wrappedKey, keyID: record.keyID, with: recovery, userID: userID)
+        try store.set(key.data, for: SecureStoreKey.syncKey(userID: userID, keyID: key.id))
+        return key
     }
 }

@@ -105,6 +105,31 @@ public final class SupabaseRESTClient: @unchecked Sendable {
         try await deleteAll(from: "sync_keys", userID: userID)
     }
 
+    // MARK: Recovery copy of the sync key (`public.sync_key_recovery`)
+
+    /// The account's recovery copy, or nil when the user hasn't made a recovery key.
+    public func fetchSyncKeyRecovery() async throws -> SyncKeyRecoveryRecord? {
+        let url = try configuration.endpoint("rest/v1/sync_key_recovery", query: [
+            URLQueryItem(name: "select", value: "user_id,key_id,wrapped_key"),
+            URLQueryItem(name: "limit", value: "1"),
+        ])
+        let data = try await authorised(url: url, method: "GET", body: nil)
+        do {
+            return try JSONDecoder().decode([SyncKeyRecoveryRecord].self, from: data).first
+        } catch {
+            throw NetworkError.decoding(String(describing: error))
+        }
+    }
+
+    /// Stores the recovery copy, replacing any earlier one (a new recovery key replaces the old).
+    public func saveSyncKeyRecovery(_ record: SyncKeyRecoveryRecord) async throws {
+        let url = try configuration.endpoint("rest/v1/sync_key_recovery", query: [URLQueryItem(name: "on_conflict", value: "user_id")])
+        let body = try JSONEncoder().encode([record])
+        _ = try await authorised(url: url, method: "POST", body: body, headers: [
+            "Prefer": "resolution=merge-duplicates,return=minimal",
+        ])
+    }
+
     /// One page of rows changed after `cursor`, oldest first:
     /// `GET /rest/v1/<table>?select=*&updated_at=gt.<cursor>&order=updated_at.asc&limit=500`
     /// (with `id` as a tie-breaker when the cursor has one).
